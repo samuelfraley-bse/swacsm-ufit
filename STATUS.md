@@ -78,5 +78,38 @@ This replaces the pair-based headline. The pair screen stays as a descriptive si
 - Code lives in numbered step scripts under `steps/`. Outputs go to `outputs/`.
 - The superseded pair-based plan is below for the record.
 
+### Step 03: single RF run (seed 0, commit efc966c)
+Bout-level macro-F1 (mean across test athletes, 95% bootstrap CI). One seed only; the numbers are noisy.
+
+| Team N | Sets/exercise k | Recorded athletes (later days) | New athletes (6) |
+|---|---|---|---|
+| 2 | 1 | 0.88 (0.80-0.96), 2 athletes | 0.65 (0.59-0.70) |
+| 2 | 2 | 0.98 (0.96-1.00), 2 athletes | 0.62 (0.54-0.70) |
+| 17 | 1 | 0.93 (0.91-0.96) | 0.87 (0.79-0.94) |
+| 17 | 2 | 0.94 (0.92-0.96) | 0.86 (0.80-0.93) |
+
+- There's room for a curve. For **new** athletes, the score rises from ~0.63 to ~0.86 as the team grows, so team size is the main lever.
+- **An athlete's own recorded data matters a lot.** Recorded athletes score 0.88-0.98 even with a team of 2. At N=17 the recorded-vs-new gap is ~0.07-0.08.
+- **A second set per exercise adds little** at N=17.
+- Remaining errors are mostly the press cluster (bench ↔ military ↔ push press), matching the pair screen.
+
+### Step 04: RF, 30 repeats (`steps/04_rf_repeats.py`)
+- Runtime: 124 s on 24 cores. Repeats 0-2 rerun and **reproduce exactly**.
+- Nested design: teams nest across N and sets nest across k within a repeat. The 6 new athletes are fixed within a repeat.
+- Outputs: `outputs/tables/04_rf_athletes.csv` (one row per athlete × repeat × N × k × group), `04_rf_bouts.csv.gz` and `04_rf_summary.csv`.
+- Values are bout-level macro-F1. Each athlete is averaged over repeats first, then a 95% bootstrap CI is taken over the 23 athletes:
+
+| N | New, k=1 | New, k=2 | Recorded, k=1 | Recorded, k=2 |
+|---|---|---|---|---|
+| 2 | 0.64 (0.60-0.67) | 0.66 (0.63-0.70) | 0.89 | 0.93 |
+| 8 | 0.78 (0.74-0.82) | 0.81 (0.77-0.85) | 0.91 | 0.94 |
+| 17 | 0.84 (0.80-0.87) | 0.86 (0.82-0.89) | 0.92 | 0.94 (0.93-0.96) |
+
+- Paired athlete-level comparisons (n = 23, Wilcoxon signed-rank; exploratory script, to be formalized in the evaluation step):
+  - Recorded vs new at N=17, k=2: **+0.086** (0.056-0.122), p = 1e-6
+  - New athletes, N 2→8 (k=1): **+0.141** (0.119-0.162); N 8→17: **+0.058** (0.046-0.071). The gains flatten but have not plateaued by 17.
+  - New athletes, k 1→2 at N=17: **+0.017** (0.010-0.023). Statistically clear but small.
+- **Outlier:** Subject494 is the lowest new athlete (0.60), and was also the participant with extreme jumping-jack magnitudes in the audit. Possibly a different strap placement. Keep them in, and flag it as a limitation.
+
 ### Next (superseded)
 Checkpoint 3: learning-curve harness (Axis A athletes, Axis B windows/class), RF arm only, R=10, sanity checks (shuffled labels, window-level leakage demo), then look at the curves.
