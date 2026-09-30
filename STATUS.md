@@ -1,27 +1,47 @@
 # STATUS
 
-## ▶ RESUME HERE (paused 2026-09-29, early morning)
+## ▶ RESUME HERE (updated 2026-09-29)
 
-**Story (agreed):** a wrist tracker for a strength program, told as three questions.
-1. **Starting a team:** how many athletes and sets to record? (steps 04-05, done)
-2. **Onboarding a new athlete:** full recording vs a 2-exercise battery (step 06, done: no transfer) vs label-free calibration (step 06b, written but not run). Step 07 explains *why*.
-3. **Deploying:** can the best model be compressed to run on a watch, calibration included? (step 08, not started)
+**Framing:** *How should a resource-limited strength program allocate a small wearable data-collection budget?* Public uLift data (wrist accelerometer, 15 exercises); pool of 23 adults recorded on ≥2 days. A simulated program records N athletes (2-17) × k sets per exercise (1-2) on day 1; testing uses later days only; 6 never-recorded athletes per repeat; 30 repeats; RF, CNN, LSTM. The athlete is the unit of analysis.
 
-**State of the code**
-- Last commit: `629875d` (steps 03-04). **Uncommitted:** `src/models.py`, `src/battery.py`, `src/adapt.py`, `steps/05_deep_repeats.py`, `steps/06_battery.py`, `steps/06b_label_free.py`, all `outputs/tables/05_*` and `06_*`, this file, and `drafts/`.
-- No background jobs are running. All step 05/06 runs finished and passed their same-seed reproducibility checks.
-- Step 06b smoke test **was not run** (interrupted by the user). Next action: `python steps/06b_label_free.py --model cnn` (runtime unmeasured, estimated ~5-10 min), then `--model lstm` (input_norm only; the LSTM has no BatchNorm). The smoke check to run first: in repeat 0, the "none" condition should equal the step 05 CNN new-athlete scores (N=17, k=2).
+| RQ | Question | Answer (details in the results sections below) | Step |
+|---|---|---|---|
+| 1 | Breadth: how many athletes? | Big early gains; ~12 athletes reach 90% of the gain seen up to 17; no plateau by 17 | 04, 05, 08-D |
+| 2 | Depth: a second set? | Helps (+0.02-0.04), but at an **equal budget more athletes × 1 set always wins** (12/12, p ≤ 0.003) | 08-A, 08-B |
+| 3 | Record the target athlete? | Yes: recorded > new at every N; the gap shrinks (0.29 → 0.06, CNN) but never closes | 08-C |
+| 4 | Does a 2-exercise battery transfer? | No; if anything it slightly hurts similar lifts (RF p ≤ 0.001) | 06, 08-F |
+| 5 | Zero-cost label-free calibration? | Small, reliable gain at small N (CNN +0.04 at N=2, p = 5e-7); ns at N=17 | 06b |
+| why | What does the sensor use? | Posture is shared across people, motion is personal; orientation-free signals fail | 07 |
+| models | Which model? | RF best with little data, CNN best at N=17 (+0.04, p = 0.001), LSTM worst | 05, 08-E |
+
+**Pipeline** (all under `steps/`; each run reproduces with the same seed):
+01 manifest → 02 audit → 03 single RF run → 04 RF grid → 05 CNN/LSTM grid → 06 battery → 06b label-free → 07 sensor ablation → 08 statistics. Outputs go to `outputs/tables/`. The earlier pair screen (`src/screen.py`, `results/`, `figs/pair_screen.png`) is kept as a descriptive side panel.
+
+**Code state:** last commit `711caac` (step 07). Uncommitted: `steps/08_analysis.py`, `outputs/tables/08_*`, this file, `drafts/`, `README.md`. No background jobs.
+
+**Decisions on record**
+- The edge/deployment step is **dropped**: this is not a deployment paper. At most one discussion sentence on model size (CNN ~33k parameters; calibration is one forward pass over one session).
+- The power-law asymptote fit is not usable (hits the bound); report within-range N90/N95 instead.
+- Battery fine-tuning uses class-balanced batches; the first recipe was confounded (disclosed below).
+- Do not claim "the presses look the same because the forearm is vertical": step 07 shows the presses are separated mainly by posture.
 
 **To do, in order**
-1. Commit the current work (ask the user first).
-2. ~~**06b** label-free calibration~~ **done**, see results below. Commit `b3ae7a4` holds steps 05-06; 06b outputs, `src/variants.py`, `steps/07_sensor_ablation.py` and a `src/features.py` change (1-channel support; 4-channel output unchanged, tests pass) are uncommitted.
-3. ~~**07**~~ **done**, see results below. "What does the sensor use?", RF at N = 8, 17: (a) gravity/posture-only vs motion-only signals, (b) magnitude-only (orientation-free). Does the recorded-vs-new gap shrink with magnitude only?
-4. **08** edge panel: parameter count and size (RF vs CNN vs LSTM), 8-bit quantization accuracy drop on the same test athletes, operations per window, CPU latency per window (proxy; no real device), cost of AdaBN calibration.
-5. Evaluation step: formal paired tests (CNN vs RF vs LSTM; recorded vs new; k1 vs k2), moving the exploratory script into `steps/`.
-6. Figures: three panels (RF | CNN | LSTM), macro-F1 vs athletes recorded, 4 lines (k × recorded/new), CIs.
-7. Optional battery ideas not yet run: (#1) record only the confused lifts (bench, military, push press) and score on all 15; (#3) within-family transfer, analysis only, from the existing random-pair results.
-8. Poster ideas: data expressed as coach time (minutes of recording), worst-case athlete distribution, a "why" panel for press confusion (wrist angle vs gravity), per-exercise recall vs N, QR code to an interactive calculator (last).
-9. Abstract: draft in `drafts/abstract_draft.md`. **Late-breaking deadline Oct 9, 2026, 6 pm PST** (general and expanded deadlines have passed). Use the new 2026 SWACSM template. Email Dr. Amorim to confirm that a secondary analysis of public data qualifies as late-breaking.
+1. **Figures**: (a) equal-budget comparison (headline); (b) learning curves, one panel per model, recorded vs new; (c) gap G(N); (d) onboarding: record all 15 vs battery vs label-free; (e) posture/motion panel; (f) per-exercise recall vs N; optionally the worst-case athlete distribution.
+2. **Revise the abstract** (`drafts/abstract_draft.md`) around the budget framing; see the notes at the top of that file.
+3. Verify the citations before using them: the uLift paper (reported 90.06% accuracy?); the large-scale HAR study on labeled subjects vs data per subject; the Prudholme & Lockie SWACSM abstract.
+4. **Late-breaking deadline Oct 9, 2026, 6 pm PST.** Use the new 2026 SWACSM template. Email Dr. Amorim (amorim@unm.edu) to confirm that a secondary analysis of public data qualifies.
+5. Optional: "record only the confused lifts" battery; the coach-time framing (minutes of recording per budget).
+
+## Step 08 results: statistics on saved results (done 2026-09-29; `steps/08_analysis.py`, no new training)
+Framing adopted: **"How should a resource-limited program allocate a small wearable data-collection budget?"** RQ1 breadth, RQ2 depth, RQ3 recording the target athlete, RQ4 transfer from a short battery, RQ5 zero-cost label-free calibration. Step 07 explains *why*. The old step 08 (edge/deployment) is **dropped**; at most one discussion sentence on model size. Tables: `outputs/tables/08_*.csv`. All comparisons are paired by athlete (Wilcoxon; 95% bootstrap CI; n = 23).
+
+- **A. Equal budget: breadth beats depth in all 12 comparisons.** With the same number of recorded sets, 2N athletes × 1 set beats N athletes × 2 sets for new athletes: RF +0.025 to +0.054, CNN +0.033 to +0.070, LSTM +0.041 to +0.060; all p ≤ 0.003; 16-23 of 23 athletes better. E.g. RF 8×1 = 0.78 vs 4×2 = 0.74; CNN 8×1 = 0.79 vs 4×2 = 0.73. **Probably the headline figure.**
+- **B. Depth: correction to "a second set adds little".** It helps, just less than breadth: RF +0.02-0.03, CNN +0.04 (N ≤ 8) → +0.02 (N=17), LSTM +0.04-0.09; all p < 0.001.
+- **C. Personalization gap G(N) shrinks but never closes.** RF 0.27 (N=2) → 0.13 (8) → 0.09 (17); CNN 0.29 → 0.11 → 0.06; LSTM 0.27 → 0.13 → 0.07. All p < 1e-5. Population diversity reduces but does not replace athlete-specific recordings.
+- **D. How many athletes? Correction to "about 8".** Marginal gain per added athlete falls from 0.04-0.055 (2→4) to 0.003-0.015 (12→17). **Reaching 90% of the gain seen from N=2 to N=17 takes about 11.5-13 athletes** (RF k1 11.7, CI 11.0-13.3; CNN k2 11.5, 10.5-12.5); 95% takes about 14-16. At N=8 a program has ~70-75% of that gain. Caveat: this is relative to N=17, and the curve has not plateaued.
+  - The power-law asymptote fit is **not usable**: A_inf hits the 1.0 bound and N95 comes out in the hundreds to thousands with huge CIs. Do not report it; just say the curve had not plateaued by 17.
+- **E. Model comparisons confirm the crossover.** CNN − RF for new athletes: −0.051 at N=2 (p = 0.003), +0.019 at N=8 (p = 0.22, ns), **+0.039 at N=17 (p = 0.001)**. LSTM < RF at N=2 and 8 (p < 0.001), ns at 17; LSTM < CNN everywhere (p < 1e-5).
+- **F. Transfer to *similar* exercises is not positive; if anything it interferes.** On non-battery exercises that are similar to a battery exercise, accuracy *drops* slightly: RF −0.037 for confusable pairs at N=8 (vs −0.002 for dissimilar; p = 2e-5), −0.020 at N=17 (p = 0.001). CNN and LSTM point the same way but are not significant (CNN −0.015, p = 0.08). Interpretation: recording someone's military press makes the model likelier to call their push press a military press. There is no generic athlete signature to learn cheaply; individual information is movement-specific.
 
 ## Step 07 results: what does the sensor use? (done 2026-09-29; RF, k=2, 30 repeats, 1.4 min)
 The "full" condition reproduces step 04 (1,110/1,110 rows, max diff 1e-16), and a rerun of repeat 0 reproduces exactly. Tables: `outputs/tables/07_rf_{athletes,summary}.csv`, `07_rf_bouts.csv.gz`. Paired tests: exploratory script (to be formalized in the evaluation step).
@@ -206,5 +226,5 @@ Bout-level macro-F1 (mean across test athletes, 95% bootstrap CI). One seed only
 
 - **Outlier:** Subject494 is the lowest new athlete (0.60), and was also the participant with extreme jumping-jack magnitudes in the audit. Possibly a different strap placement. Keep them in, and flag it as a limitation.
 
-### Next (superseded)
-Checkpoint 3: learning-curve harness (Axis A athletes, Axis B windows/class), RF arm only, R=10, sanity checks (shuffled labels, window-level leakage demo), then look at the curves.
+### Next (superseded by the new-team design)
+Checkpoint 3 of the old pair-based plan (learning curves on 3 pairs) was never run.
