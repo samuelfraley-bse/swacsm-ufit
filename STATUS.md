@@ -33,6 +33,25 @@
 4. **Late-breaking deadline Oct 9, 2026, 6 pm PST.** Use the new 2026 SWACSM template. Email Dr. Amorim (amorim@unm.edu) to confirm that a secondary analysis of public data qualifies.
 5. Optional: "record only the confused lifts" battery; the coach-time framing (minutes of recording per budget).
 
+## Step 13 results: real-time recognition (done 2026-09-29; RF 0.3 min, CNN 2.0 min on 24 cores)
+Running call over the 2 s windows available so far (new window every 1 s), for never-recorded athletes' later-day sets; 1 set per exercise recorded. End-of-set results reproduce steps 04/05 exactly (720 rows each); repeat 0 reproduces. Tables: `outputs/tables/13_realtime_{rf,cnn}_*`.
+
+Accuracy (share of sets named correctly) by time into the set:
+
+| N | Model | 2 s | 4 s | 6 s | 10 s | end of set | median time to a stable correct call |
+|---|---|---|---|---|---|---|---|
+| 2 | RF | 0.68 | 0.68 | 0.69 | 0.69 | 0.69 | 2 s (~1.1 reps) |
+| 2 | CNN | 0.61 | 0.62 | 0.63 | 0.63 | 0.63 | 2 s |
+| 8 | RF | 0.79 | 0.79 | 0.80 | 0.81 | 0.81 | 2 s |
+| 8 | CNN | 0.79 | 0.80 | 0.81 | 0.81 | 0.82 | 2 s |
+| 17 | RF | 0.84 | 0.84 | 0.85 | 0.85 | 0.86 | 2 s |
+| 17 | CNN | 0.87 | 0.87 | 0.88 | 0.89 | 0.89 | 2 s (~1.1 reps) |
+
+- **The tracker knows almost immediately.** Accuracy after the first 2 s (about one rep; median set 18 s) is within 0.01-0.03 of the end-of-set accuracy. When a set is named correctly, it is typically correct from the first window and stays correct.
+- **Waiting longer in a set barely helps; recording more athletes helps a lot.** At 2 s, going from 2 to 17 recorded athletes adds +0.16 (RF) / +0.26 (CNN); waiting to the end of the set adds ≤ 0.03.
+- It also settles the metric question: single-window accuracy ≈ whole-set accuracy, so set-level voting does not meaningfully compress the effects (the Um et al. comparison concern).
+- Accuracy here is the share of sets named correctly (averaged per athlete), not macro-F1; the end-of-set macro-F1 matches steps 04/05.
+
 ## Step 12 results: few athletes recorded deeply vs many recorded once (done 2026-09-29; RF 0.9 min, CNN 4.5 min on 24 cores)
 Same budget split three ways; all 15 exercises in every condition; only the number of *different people* changes. Deep sets 3-4 come from the athlete's next recording day, so depth includes day-to-day variation. Tested on never-recorded athletes only. All depth ≤ 2 conditions reproduce steps 04/05 exactly (1,080 rows each); repeat 0 reproduces. Tables: `outputs/tables/12_deep_broad_{rf,cnn}_*`.
 
@@ -46,7 +65,8 @@ Same budget split three ways; all 15 exercises in every condition; only the numb
 - **One athlete recorded four times is far worse than four athletes recorded once** (+0.15-0.16, every athlete better). Day-to-day variation within one person does not substitute for variation between people.
 - This is the strongest version of the headline, and it closes the "depth = same-day second set" limitation.
 
-## Step 11 results: simulated athletes / augmentation (done 2026-09-29; RF 6.1 min on 12 cores, CNN 5.3 min on 24; both reproduce baselines exactly)
+## Step 11 results: simulated athletes / augmentation — DROPPED from the poster and abstract (user decision, 2026-09-29)
+Kept in the repo as a record only. Small effects; the published recipe (Um et al. 2017) did not fit this task. (done 2026-09-29; RF 6.1 min on 12 cores, CNN 5.3 min on 24; both reproduce baselines exactly)
 Budget 1 set per exercise. 4 simulated copies per recorded set (`src/augment.py`). The CNN gets the same number of gradient steps in every arm. New athletes; paired by athlete (n = 23). "≈ athletes" = extra real athletes with the same score on the real learning curve (blank when outside the curve). Tables: `outputs/tables/11_sim_{rf,cnn}_*`.
 
 | N | RF tempo+intensity | RF + strap rotation | CNN tempo+intensity | CNN + strap rotation |
