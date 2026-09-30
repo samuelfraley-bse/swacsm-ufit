@@ -27,11 +27,19 @@
 - Gain: +0.042 with 2 athletes recorded (p = 5e-7; 22 of 23 improved), +0.027 with 8 (p = 6e-5), not significant with 17 (+0.012, p = 0.07).
 - About one extra recorded teammate's worth when data are scarce. It is free, but modest and no substitute for recording.
 
-## Why: what does the sensor use? (RF)
-- Wrist posture (orientation relative to gravity) and movement dynamics are complementary; each alone loses 0.07-0.12 for new athletes, and neither beats the other.
-- **Posture is shared across people; movement is personal.** The recorded-vs-new gap is small with posture only (same as the full signal) and much larger with motion only (+0.07-0.08, p ≤ 0.0003). This explains RQ3 and RQ4.
-- Removing orientation (total acceleration only) collapses recognition (0.56 at 17 athletes) and widens the gap: orientation is the part that generalizes.
-- The pressing lifts (bench, military, push press) are the most confused in every version and are separated mainly by posture.
+## Few athletes recorded many times vs many recorded once (step 12)
+- Same budget, all 15 exercises, only the number of different people changes. At every budget and in both RF and CNN: many athletes × 1 set > in between > few athletes × many sets.
+- **1 athlete × 4 sets vs 4 athletes × 1 set: +0.15 (RF) / +0.16 (CNN), every one of 23 athletes better**, even though the 4 sets span two recording days.
+- One number (regression, step 15): **doubling the athletes recorded buys 2.5-4× as much accuracy as doubling each athlete's sets** (RF +0.068 vs +0.016; CNN +0.098 vs +0.039 per doubling).
+
+## Individual athletes and confusions (step 15)
+- With 8 athletes recorded, 12 of 23 (RF) and 15 of 23 (CNN) new athletes are still below 0.80; one athlete stays far below the rest.
+- The pressing lifts are the most confused: the military press is called correctly 41% of the time (34% called bench press, 20% push press; CNN, 8 athletes).
+
+## Real-time (step 13, poster only)
+- Once a set is underway (set start given), the tracker names it within about one rep: accuracy after 2 s is within 0.01-0.03 of the end-of-set accuracy.
+
+*(A "posture is shared, movement is personal" explanation was explored in steps 07 and 15 and removed: it did not hold up feature by feature.)*
 
 ## Which model?
 - RF is best with very little data (CNN − RF = −0.05 at 2 athletes, p = 0.003); they tie at 8 (p = 0.22); the CNN is best at 17 (+0.04, p = 0.001). The LSTM is worse than the CNN at every size (p < 1e-5).

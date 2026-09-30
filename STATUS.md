@@ -12,7 +12,7 @@
 | 4 | Does a 2-exercise battery transfer? | No; if anything it slightly hurts similar lifts (RF p ≤ 0.001) | 06, 08-F |
 | 5 | Zero-cost label-free calibration? | Small, reliable gain at small N (CNN +0.04 at N=2, p = 5e-7); ns at N=17 | 06b |
 | 5b | Can unlabeled wear substitute for labeled athletes? | Only when labels are scarce: self-training +0.02-0.04 at N=2 (≈ one extra athlete); nothing at N=4-8 | 10 |
-| why | What does the sensor use? | Posture is shared across people, motion is personal; orientation-free signals fail | 07 |
+| ~~why~~ | ~~What does the sensor use?~~ | **Removed from the paper (user, 2026-09-29).** The "posture shared, movement personal" explanation did not hold up (see step 15). Step 07 results are kept as a record only | 07, 15 |
 | models | Which model? | RF best with little data, CNN best at N=17 (+0.04, p = 0.001), LSTM worst | 05, 08-E |
 
 **Pipeline** (all under `steps/`; each run reproduces with the same seed):
@@ -24,7 +24,7 @@
 - The edge/deployment step is **dropped**: this is not a deployment paper. At most one discussion sentence on model size (CNN ~33k parameters; calibration is one forward pass over one session).
 - The power-law asymptote fit is not usable (hits the bound); report within-range N90/N95 instead.
 - Battery fine-tuning uses class-balanced batches; the first recipe was confounded (disclosed below).
-- Do not claim "the presses look the same because the forearm is vertical": step 07 shows the presses are separated mainly by posture.
+- Do not claim any posture-based mechanism (neither "forearm vertical" nor "posture shared, movement personal"). The posture finding is out of the paper; fig4 is not used on the poster.
 
 **Figures: done (2026-09-29), `python steps/14_figures.py` → `figs/fig1_learning_curves`, `fig2_budget`, `fig3_shortcuts`, `fig4_posture_motion`, `fig5_realtime` (PNG 300 dpi + PDF).** Reference palette (validated slots; the Node validator was not available to re-run). Bars start at 0. The posture-only gap is 0.07 (0.0747), corrected from 0.08 in STATUS and the abstract.
 
@@ -40,7 +40,7 @@
 - **fig8_individual_athletes:** every never-recorded athlete's curve plus the mean. With 8 athletes recorded, 12/23 (RF) and 15/23 (CNN) new athletes are still below 0.80; the lowest athlete stays far below the rest.
 - **fig9_confusion:** CNN, 8 athletes × 1 set, new athletes. The worst class is the military press: 41% correct, 34% called bench press, 20% push press. Bench press 63%, push press 81%. Squat ↔ back squat and row → deadlift are the other main confusions.
 - **Regression** (`outputs/tables/15_regression.csv`): new-athlete macro-F1 ~ athlete intercepts + log2(athletes recorded) + log2(sets per athlete), using steps 04/05 (1-2 sets) and 12 (4 sets), with a cluster bootstrap over athletes. **Doubling athletes: RF +0.068 (0.060-0.075), CNN +0.098 (0.092-0.105). Doubling sets per athlete: RF +0.016 (0.012-0.020), CNN +0.039 (0.034-0.044). Ratio: RF 4.2× (3.3-5.5), CNN 2.5× (2.3-2.9).** Within-athlete R² 0.85 / 0.92. Poster sentence: "Doubling the athletes recorded buys 2.5-4× as much accuracy as doubling each athlete's sets."
-- ⚠️ **Posture claim walked back (user, 2026-09-29).** A variance decomposition of set-level features (`outputs/tables/15_variance_decomposition.csv`; 1,861 sets, 23 athletes) shows the "posture shared, movement personal" line is too simple. Between-exercise share of variance: orientation x-axis 92%, z 72%, y 52%, orientation change within a set 44%, movement intensity 91%, tempo 36%. Between-athlete (same exercise) share: y-axis orientation 37% and tempo 38% are the personal parts. Bench and military press overlap in average wrist orientation. Step 07's aggregate result (motion-only has a larger recorded-new gap; orientation-free fails) still stands, but its one-line interpretation should not be claimed. Pending decision: soften or remove the posture sentence in the abstract and the fig4 title.
+- ⚠️ **Posture claim walked back (user, 2026-09-29).** A variance decomposition of set-level features (`outputs/tables/15_variance_decomposition.csv`; 1,861 sets, 23 athletes) shows the "posture shared, movement personal" line is too simple. Between-exercise share of variance: orientation x-axis 92%, z 72%, y 52%, orientation change within a set 44%, movement intensity 91%, tempo 36%. Between-athlete (same exercise) share: y-axis orientation 37% and tempo 38% are the personal parts. Bench and military press overlap in average wrist orientation. Step 07's aggregate result (motion-only has a larger recorded-new gap; orientation-free fails) still stands, but its one-line interpretation should not be claimed. **Decision: the posture finding is removed** from the abstract, findings and poster (fig4 not used).
 
 ## Step 13 results: real-time recognition (done 2026-09-29; RF 0.3 min, CNN 2.0 min on 24 cores)
 Running call over the 2 s windows available so far (new window every 1 s), for never-recorded athletes' later-day sets; 1 set per exercise recorded. End-of-set results reproduce steps 04/05 exactly (720 rows each); repeat 0 reproduces. Tables: `outputs/tables/13_realtime_{rf,cnn}_*`.
@@ -142,7 +142,7 @@ Framing adopted: **"How should a resource-limited program allocate a small weara
 - **E. Model comparisons confirm the crossover.** CNN − RF for new athletes: −0.051 at N=2 (p = 0.003), +0.019 at N=8 (p = 0.22, ns), **+0.039 at N=17 (p = 0.001)**. LSTM < RF at N=2 and 8 (p < 0.001), ns at 17; LSTM < CNN everywhere (p < 1e-5).
 - **F. Transfer to *similar* exercises is not positive; if anything it interferes.** On non-battery exercises that are similar to a battery exercise, accuracy *drops* slightly: RF −0.037 for confusable pairs at N=8 (vs −0.002 for dissimilar; p = 2e-5), −0.020 at N=17 (p = 0.001). CNN and LSTM point the same way but are not significant (CNN −0.015, p = 0.08). Interpretation: recording someone's military press makes the model likelier to call their push press a military press. There is no generic athlete signature to learn cheaply; individual information is movement-specific.
 
-## Step 07 results: what does the sensor use? (done 2026-09-29; RF, k=2, 30 repeats, 1.4 min)
+## Step 07 results: what does the sensor use? — RECORD ONLY (posture interpretation removed from the paper, 2026-09-29) (done 2026-09-29; RF, k=2, 30 repeats, 1.4 min)
 The "full" condition reproduces step 04 (1,110/1,110 rows, max diff 1e-16), and a rerun of repeat 0 reproduces exactly. Tables: `outputs/tables/07_rf_{athletes,summary}.csv`, `07_rf_bouts.csv.gz`. Paired tests: exploratory script (to be formalized in the evaluation step).
 
 | N | Signal | New athletes F1 | Recorded F1 | Recorded − new gap (95% CI) | Press recall, new athletes |
