@@ -14,14 +14,30 @@
 
 **To do, in order**
 1. Commit the current work (ask the user first).
-2. **06b** label-free calibration: CNN (input_norm, AdaBN, both, AdaBN on test days as secondary), LSTM (input_norm). N = 2, 8, 17.
-3. **07** "What does the sensor use?", RF at N = 8, 17: (a) gravity/posture-only vs motion-only signals, (b) magnitude-only (orientation-free). Does the recorded-vs-new gap shrink with magnitude only?
+2. ~~**06b** label-free calibration~~ **done**, see results below. Commit `b3ae7a4` holds steps 05-06; 06b outputs, `src/variants.py`, `steps/07_sensor_ablation.py` and a `src/features.py` change (1-channel support; 4-channel output unchanged, tests pass) are uncommitted.
+3. **07** (script written, not yet run; it asserts that "full" reproduces step 04) "What does the sensor use?", RF at N = 8, 17: (a) gravity/posture-only vs motion-only signals, (b) magnitude-only (orientation-free). Does the recorded-vs-new gap shrink with magnitude only?
 4. **08** edge panel: parameter count and size (RF vs CNN vs LSTM), 8-bit quantization accuracy drop on the same test athletes, operations per window, CPU latency per window (proxy; no real device), cost of AdaBN calibration.
 5. Evaluation step: formal paired tests (CNN vs RF vs LSTM; recorded vs new; k1 vs k2), moving the exploratory script into `steps/`.
 6. Figures: three panels (RF | CNN | LSTM), macro-F1 vs athletes recorded, 4 lines (k × recorded/new), CIs.
 7. Optional battery ideas not yet run: (#1) record only the confused lifts (bench, military, push press) and score on all 15; (#3) within-family transfer, analysis only, from the existing random-pair results.
 8. Poster ideas: data expressed as coach time (minutes of recording), worst-case athlete distribution, a "why" panel for press confusion (wrist angle vs gravity), per-exercise recall vs N, QR code to an interactive calculator (last).
 9. Abstract: draft in `drafts/abstract_draft.md`. **Late-breaking deadline Oct 9, 2026, 6 pm PST** (general and expanded deadlines have passed). Use the new 2026 SWACSM template. Email Dr. Amorim to confirm that a secondary analysis of public data qualifies as late-breaking.
+
+## Step 06b results: label-free calibration (done 2026-09-29, 30 repeats, reproducible)
+The new athlete wears the watch for their first day with **no labels**. CNN: 2.6 min; LSTM: 10 min. The "none" condition reproduces step 05 exactly. Tables: `outputs/tables/06b_{cnn,lstm}_{athletes,summary}.csv`.
+
+CNN, new athletes, macro-F1 (gain vs none, 95% CI over 23 athletes):
+
+| N recorded | None | AdaBN, day-1 wear | AdaBN + own input scaling | Own input scaling only | AdaBN on test days (secondary) |
+|---|---|---|---|---|---|
+| 2 | 0.611 | 0.653 (**+0.042**, 0.031-0.054) | 0.654 (+0.043) | 0.621 (+0.010, ns) | 0.663 (+0.052) |
+| 8 | 0.829 | 0.855 (**+0.027**, 0.018-0.036) | 0.854 (+0.025) | 0.839 (+0.010, ns) | 0.861 (+0.032) |
+| 17 | 0.895 | 0.907 (**+0.012**, 0.002-0.024) | 0.908 (+0.013, ns) | 0.895 (0.000) | 0.916 (+0.021) |
+
+- **AdaBN helps, and helps most when few athletes are recorded.** With no labels and no retraining, it closes ~15-25% of the recorded-vs-new gap. At N=2 it is worth about one extra recorded teammate (N=2+AdaBN 0.65 vs N=4 0.73 for the CNN); at N=8 it lands between the N=8 and N=12 scores.
+- Rescaling inputs with the athlete's own statistics adds nothing on top of AdaBN. For the **LSTM** (no BatchNorm; input scaling only) it slightly **hurts** (−0.017 at N=8, −0.021 at N=17). So the gain comes from recalibrating the network's internal statistics, not from simple rescaling.
+- Adapting on the unlabeled test days themselves is slightly better (+0.02-0.05) and is realistic for an on-device tracker, but it is reported as secondary.
+- **Poster message:** "Just wearing the watch for one session, with no labels, improves recognition of a new athlete, most when the program has recorded few athletes." It is computationally tiny (forward passes only), which sets up step 08.
 
 ## Step 05 results: CNN and LSTM, 30 repeats (done)
 - CNN 8.1 min, LSTM 41.9 min. Both reproduce repeats 0-1 exactly. Tables: `outputs/tables/05_{cnn,lstm}_*`.

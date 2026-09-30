@@ -22,7 +22,7 @@ def _corr(a, b):
 
 
 def extract(X, fs=C.FS):
-    """X: (n, 4, T) -> (n, 59) float32."""
+    """X: (n, C, T) -> (n, 14*C + 3) float32 for C >= 3 (59 for the default 4 channels); (n, 14*C) otherwise."""
     X = X.astype(np.float64)
     n, ch, T = X.shape
     mean = X.mean(-1)
@@ -47,5 +47,7 @@ def extract(X, fs=C.FS):
     spent = -(p * np.log(np.maximum(p, 1e-12))).sum(-1) / np.log(P.shape[-1])
     per = np.stack([mean, std, mn, mx, mx - mn, q75 - q25, rms, sk, ku, zc, jerk, domf, domp, spent], -1)
     per = per.reshape(n, ch * len(STATS))
+    if ch < 3:  # e.g. magnitude-only input: no inter-axis correlations
+        return per.astype(np.float32)
     corr = np.column_stack([_corr(X[:, 0], X[:, 1]), _corr(X[:, 0], X[:, 2]), _corr(X[:, 1], X[:, 2])])
     return np.hstack([per, corr]).astype(np.float32)
