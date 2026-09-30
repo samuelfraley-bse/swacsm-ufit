@@ -7,7 +7,7 @@
 | RQ | Question | Answer (details in the results sections below) | Step |
 |---|---|---|---|
 | 1 | Breadth: how many athletes? | Big early gains; ~12 athletes reach 90% of the gain seen up to 17; no plateau by 17 | 04, 05, 08-D |
-| 2 | Depth: a second set? | Helps (+0.02-0.04), but at an **equal budget more athletes × 1 set always wins** (12/12, p ≤ 0.003) | 08-A, 08-B |
+| 2 | Depth: a second set? | Helps (+0.02-0.04), but at an **equal budget more athletes × 1 set always wins** (12/12, p ≤ 0.003); extra sets targeted at the confused presses also lose to more athletes (step 09) | 08-A, 08-B, 09 |
 | 3 | Record the target athlete? | Yes: recorded > new at every N; the gap shrinks (0.29 → 0.06, CNN) but never closes | 08-C |
 | 4 | Does a 2-exercise battery transfer? | No; if anything it slightly hurts similar lifts (RF p ≤ 0.001) | 06, 08-F |
 | 5 | Zero-cost label-free calibration? | Small, reliable gain at small N (CNN +0.04 at N=2, p = 5e-7); ns at N=17 | 06b |
@@ -31,6 +31,22 @@
 3. Verify the citations before using them: the uLift paper (reported 90.06% accuracy?); the large-scale HAR study on labeled subjects vs data per subject; the Prudholme & Lockie SWACSM abstract.
 4. **Late-breaking deadline Oct 9, 2026, 6 pm PST.** Use the new 2026 SWACSM template. Email Dr. Amorim (amorim@unm.edu) to confirm that a secondary analysis of public data qualifies.
 5. Optional: "record only the confused lifts" battery; the coach-time framing (minutes of recording per budget).
+
+## Step 09 results: targeted depth (done 2026-09-29; RF, 30 repeats, 1.5 min on 12 cores, reproducible)
+Equal budgets of 18 sets per athlete-equivalent: 2nd set of the 3 presses vs 2nd set of 3 random non-press exercises vs 20% more athletes (1 set each). New athletes; paired by athlete (n = 23). Tables: `outputs/tables/09_targeted_*`.
+
+| N | Comparison | Macro-F1 diff | p | Press recall diff | p |
+|---|---|---|---|---|---|
+| 5 | presses +2nd set vs base | −0.002 | 0.99 | +0.023 (−0.002 to 0.046) | 0.04 |
+| 5 | random 3 +2nd set vs base | −0.002 | 0.45 | −0.004 | 0.36 |
+| 5 | **more athletes vs presses +2nd set** | **+0.022** (0.012-0.034) | **0.0005** | −0.005 | 0.52 |
+| 10 | presses +2nd set vs base | +0.001 | 0.54 | +0.012 | 0.14 |
+| 10 | **more athletes vs presses +2nd set** | **+0.023** (0.014-0.034) | **0.0001** | +0.004 | 0.90 |
+
+- **Targeting does not pay.** Extra press sets leave overall macro-F1 unchanged and give at most a marginal press-recall gain (+0.02 at N=5, CI touching 0; ns at N=10). Extra sets of random exercises do nothing.
+- **More athletes win again**: +0.02 overall (p ≤ 0.0005). Even on the presses themselves, more athletes match the targeted sets (ns). This strengthens RQ2: spend any spare budget on breadth.
+- Caveat: the presses were chosen from earlier descriptive analyses that included all athletes, which if anything favors the targeted condition.
+- Fix during the run: the low-priority call in `steps/09_targeted_depth.py` passed a truncated Windows handle and silently failed; fixed (priority does not affect results).
 
 ## Step 08 results: statistics on saved results (done 2026-09-29; `steps/08_analysis.py`, no new training)
 Framing adopted: **"How should a resource-limited program allocate a small wearable data-collection budget?"** RQ1 breadth, RQ2 depth, RQ3 recording the target athlete, RQ4 transfer from a short battery, RQ5 zero-cost label-free calibration. Step 07 explains *why*. The old step 08 (edge/deployment) is **dropped**; at most one discussion sentence on model size. Tables: `outputs/tables/08_*.csv`. All comparisons are paired by athlete (Wilcoxon; 95% bootstrap CI; n = 23).

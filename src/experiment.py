@@ -46,6 +46,17 @@ def train_ids(plan, n_team, k, classes=range(15)):
     return team, ids
 
 
+def train_ids_extra(plan, n_team, extra_classes, classes=range(15)):
+    """First n_team athletes: 1 set of every class, plus a 2nd set of `extra_classes` (nested with k=1/k=2)."""
+    team = plan["order"][:n_team]
+    ids = []
+    for pid in team:
+        for c in classes:
+            s = plan["sets"][(pid, c)]
+            ids += s[:2] if c in extra_classes else s[:1]
+    return team, ids
+
+
 def run_repeat(r, fit_predict, X, F, meta, model_name, team_sizes=TEAM_SIZES, ks=KS):
     """fit_predict(train_mask, test_mask, seed) -> (n_test_windows, 15) probabilities.
 
