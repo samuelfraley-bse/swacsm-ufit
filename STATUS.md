@@ -26,8 +26,10 @@
 - Battery fine-tuning uses class-balanced batches; the first recipe was confounded (disclosed below).
 - Do not claim "the presses look the same because the forearm is vertical": step 07 shows the presses are separated mainly by posture.
 
-**To do, in order**
-1. **Figures**: (a) equal-budget comparison (headline); (b) learning curves, one panel per model, recorded vs new; (c) gap G(N); (d) onboarding: record all 15 vs battery vs label-free; (e) posture/motion panel; (f) per-exercise recall vs N; optionally the worst-case athlete distribution.
+**Figures: done (2026-09-29), `python steps/14_figures.py` → `figs/fig1_learning_curves`, `fig2_budget`, `fig3_shortcuts`, `fig4_posture_motion`, `fig5_realtime` (PNG 300 dpi + PDF).** Reference palette (validated slots; the Node validator was not available to re-run). Bars start at 0. The posture-only gap is 0.07 (0.0747), corrected from 0.08 in STATUS and the abstract.
+
+**To do, in order** (item 1 superseded by the figures above)
+1. ~~**Figures**~~: (a) equal-budget comparison (headline); (b) learning curves, one panel per model, recorded vs new; (c) gap G(N); (d) onboarding: record all 15 vs battery vs label-free; (e) posture/motion panel; (f) per-exercise recall vs N; optionally the worst-case athlete distribution.
 2. **Revise the abstract** (`drafts/abstract_draft.md`) around the budget framing; see the notes at the top of that file.
 3. Verify the citations before using them: the uLift paper (reported 90.06% accuracy?); the large-scale HAR study on labeled subjects vs data per subject; the Prudholme & Lockie SWACSM abstract.
 4. **Late-breaking deadline Oct 9, 2026, 6 pm PST.** Use the new 2026 SWACSM template. Email Dr. Amorim (amorim@unm.edu) to confirm that a secondary analysis of public data qualifies.
@@ -143,7 +145,7 @@ The "full" condition reproduces step 04 (1,110/1,110 rows, max diff 1e-16), and 
 | 8 | motion (gravity removed) | 0.69 | 0.91 | 0.21 (0.17-0.26) | 0.51 |
 | 8 | magnitude only | 0.50 | 0.71 | 0.21 (0.17-0.26) | 0.34 |
 | 17 | full | 0.86 | 0.94 | 0.09 (0.06-0.12) | 0.69 |
-| 17 | posture | 0.78 | 0.86 | 0.08 (0.06-0.09) | 0.70 |
+| 17 | posture | 0.78 | 0.86 | 0.07 (0.06-0.09) | 0.70 |
 | 17 | motion | 0.77 | 0.91 | 0.14 (0.11-0.19) | 0.58 |
 | 17 | magnitude only | 0.56 | 0.70 | 0.15 (0.11-0.19) | 0.36 |
 
