@@ -1,5 +1,55 @@
 # STATUS
 
+## ▶ RESUME HERE (paused 2026-09-29, early morning)
+
+**Story (agreed):** a wrist tracker for a strength program, told as three questions.
+1. **Starting a team:** how many athletes and sets to record? (steps 04-05, done)
+2. **Onboarding a new athlete:** full recording vs a 2-exercise battery (step 06, done: no transfer) vs label-free calibration (step 06b, written but not run). Step 07 explains *why*.
+3. **Deploying:** can the best model be compressed to run on a watch, calibration included? (step 08, not started)
+
+**State of the code**
+- Last commit: `629875d` (steps 03-04). **Uncommitted:** `src/models.py`, `src/battery.py`, `src/adapt.py`, `steps/05_deep_repeats.py`, `steps/06_battery.py`, `steps/06b_label_free.py`, all `outputs/tables/05_*` and `06_*`, this file, and `drafts/`.
+- No background jobs are running. All step 05/06 runs finished and passed their same-seed reproducibility checks.
+- Step 06b smoke test **was not run** (interrupted by the user). Next action: `python steps/06b_label_free.py --model cnn` (runtime unmeasured, estimated ~5-10 min), then `--model lstm` (input_norm only; the LSTM has no BatchNorm). The smoke check to run first: in repeat 0, the "none" condition should equal the step 05 CNN new-athlete scores (N=17, k=2).
+
+**To do, in order**
+1. Commit the current work (ask the user first).
+2. **06b** label-free calibration: CNN (input_norm, AdaBN, both, AdaBN on test days as secondary), LSTM (input_norm). N = 2, 8, 17.
+3. **07** "What does the sensor use?", RF at N = 8, 17: (a) gravity/posture-only vs motion-only signals, (b) magnitude-only (orientation-free). Does the recorded-vs-new gap shrink with magnitude only?
+4. **08** edge panel: parameter count and size (RF vs CNN vs LSTM), 8-bit quantization accuracy drop on the same test athletes, operations per window, CPU latency per window (proxy; no real device), cost of AdaBN calibration.
+5. Evaluation step: formal paired tests (CNN vs RF vs LSTM; recorded vs new; k1 vs k2), moving the exploratory script into `steps/`.
+6. Figures: three panels (RF | CNN | LSTM), macro-F1 vs athletes recorded, 4 lines (k × recorded/new), CIs.
+7. Optional battery ideas not yet run: (#1) record only the confused lifts (bench, military, push press) and score on all 15; (#3) within-family transfer, analysis only, from the existing random-pair results.
+8. Poster ideas: data expressed as coach time (minutes of recording), worst-case athlete distribution, a "why" panel for press confusion (wrist angle vs gravity), per-exercise recall vs N, QR code to an interactive calculator (last).
+9. Abstract: draft in `drafts/abstract_draft.md`. **Late-breaking deadline Oct 9, 2026, 6 pm PST** (general and expanded deadlines have passed). Use the new 2026 SWACSM template. Email Dr. Amorim to confirm that a secondary analysis of public data qualifies as late-breaking.
+
+## Step 05 results: CNN and LSTM, 30 repeats (done)
+- CNN 8.1 min, LSTM 41.9 min. Both reproduce repeats 0-1 exactly. Tables: `outputs/tables/05_{cnn,lstm}_*`.
+- Macro-F1, athlete-level mean:
+
+| N | RF new k2 | CNN new k2 | LSTM new k2 | RF rec k2 | CNN rec k2 | LSTM rec k2 |
+|---|---|---|---|---|---|---|
+| 2 | **0.66** | 0.61 | 0.49 | 0.93 | 0.90 | 0.76 |
+| 8 | 0.81 | **0.83** | 0.74 | 0.94 | 0.94 | 0.87 |
+| 17 | 0.86 | **0.90** | 0.85 | 0.94 | **0.96** | 0.92 |
+
+- **Crossover:** RF is best with little data, the CNN is best from ~8 athletes up, and the LSTM trails throughout (data-hungry with a fixed 30-epoch recipe). The user chose to keep the LSTM recipe as is, with no sensitivity run.
+- Paired tests between models have not been run yet.
+
+## Step 06 results: battery study (done, 30 repeats, reproducible)
+Gain on the new athlete's **other 13 exercises** from recording 2 movements (athlete-level mean, 95% CI), vs recording all 15:
+
+| Model | N | Squat+deadlift | Push-up+push press | Random pair | All 15 recorded (vs none) |
+|---|---|---|---|---|---|
+| RF | 8 | −0.005 (−0.010 to −0.001) | −0.008 | −0.007 | +0.11 to +0.13 |
+| RF | 17 | −0.004 (−0.008 to 0.000) | −0.007 | −0.004 | +0.07 to +0.09 |
+| CNN (balanced fine-tune) | 17 | −0.003 (−0.007 to 0.000) | −0.000 (−0.004 to +0.003) | −0.001 | +0.06 to +0.07 |
+| LSTM (balanced fine-tune) | 17 | −0.001 | −0.003 | −0.001 | +0.07 |
+
+- **Clear null: a 2-movement battery does not transfer to other exercises** in any model. The benefit of recording an athlete is exercise-specific. Mislabeling of other bouts as battery moves barely changes (e.g., CNN 1.3% → 1.5%).
+- Coach message: record the exercises you want tracked; a short generic battery is not a substitute. This motivates 06b (label-free) and 07 (magnitude-only: is any of the gap about watch orientation?).
+- Tables: `outputs/tables/06_battery_{rf,cnn,lstm}_{summary,scores}.csv`, predictions in `*_bouts.csv.gz`.
+
 ## Checkpoint 1 — Data audit (2026-09-28)
 
 Dataset clone: `data/uLift-dataset` @ `58edaf05c26c24fc1e856dc2383647efa2cc0be0` (2025-12-21). Git-ignored, read-only.
@@ -109,6 +159,15 @@ Bout-level macro-F1 (mean across test athletes, 95% bootstrap CI). One seed only
   - Recorded vs new at N=17, k=2: **+0.086** (0.056-0.122), p = 1e-6
   - New athletes, N 2→8 (k=1): **+0.141** (0.119-0.162); N 8→17: **+0.058** (0.046-0.071). The gains flatten but have not plateaued by 17.
   - New athletes, k 1→2 at N=17: **+0.017** (0.010-0.023). Statistically clear but small.
+- **Step 05 (CNN, LSTM):** a fixed recipe (30 epochs, Adam 1e-3), no tuning. The CNN finished in 8 min and repeats 0-1 reproduce. Refactoring `models.py` into train/predict was checked against the saved CNN results for repeat 0 (identical).
+
+### Step 06: battery study, design notes (2026-09-29)
+- **Question:** the new athlete records only 2 movements (squat + deadlift, push-up + push press, or 2 random pairs). Does that help recognize their *other* 13 exercises on later days? The reference is recording all 15. Uses the same repeats, new athletes and team order as steps 04-05, with team k=2.
+- **RF:** retrains from scratch per condition. By construction the RF cannot transfer person-level adjustments across classes, so it is expected to show little transfer.
+- **CNN/LSTM:** the team model is trained once, then fine-tuned (150 steps, lr 1e-4). The no-battery control gets the same fine-tuning budget on team data only.
+- **Recipe change after a 1-repeat smoke test (disclosed):** the first recipe put the athlete's battery windows in 50% of every batch. That shifted the class prior toward the 2 battery movements: the battery *hurt* by 2-6 points and more bouts were mislabeled as battery moves (0.6% → 3.8%). This was a confound, not a finding. **Switched to class-balanced batches**: labels are drawn uniformly over the 15 classes, and within a recorded class 50% of examples come from the athlete. The naive recipe is not reported further.
+- **1-repeat smoke test with the balanced recipe (CNN, N=17):** battery gain −0.007 to +0.003; recording all 15 gives about +0.05. Full results are in "Step 06 results" at the top.
+
 - **Outlier:** Subject494 is the lowest new athlete (0.60), and was also the participant with extreme jumping-jack magnitudes in the audit. Possibly a different strap placement. Keep them in, and flag it as a limitation.
 
 ### Next (superseded)
