@@ -97,28 +97,74 @@ def fig7():
     V.to_csv(T / "15_variance_decomposition.csv", index=False)
     print(V.round(3).to_string(index=False), f"\n({len(D)} sets, {D.athlete.nunique()} athletes)")
 
-    # Raw signal only (illustration, no claims): one athlete (fixed seed), first day-1 set of four lifts, same scale.
+    # Raw signal + the tracker's window-by-window calls for a NEVER-RECORDED athlete (chosen with a fixed seed).
+    # Tracker: CNN trained on 8 other athletes x 1 set (first repeat in which this athlete is held out).
+    import torch
+
+    from src.data import get_windows
+    from src.experiment import repeat_plan, train_ids
+    from src.metrics import vote_bouts
+    from src.models import predict, train_model
+
+    torch.set_num_threads(4)
     pid = np.random.default_rng(SEED).choice(pool)
+    X, _, meta = get_windows()
+    y = meta.cls.to_numpy()
+    segw = meta.segment_id.to_numpy()
+    r = next(r for r in range(30) if pid in repeat_plan(r, man)["new"])
+    plan = repeat_plan(r, man)
+    _, tr = train_ids(plan, 8, 1)
+    assert pid not in plan["order"][:8]
+    trm = np.isin(segw, tr)
+    model, mu, sd = train_model("cnn", X[trm], y[trm], seed=r)
+
     lifts = [(6, "Deadlift"), (9, "Arm curl"), (4, "Bench press"), (10, "Military press")]
-    fig, axes = plt.subplots(1, 4, figsize=(18, 5.4), sharey=True)
-    for ax, (c, name) in zip(axes, lifts):
-        b = man[(man.participant_id == pid) & (man.exercise_class == c) & (man.day_order == 1)] \
-            .sort_values(["session_order", "set_order_in_session"]).iloc[0]
-        s = sig[b.segment_id][: int(8 * C.FS)] / 9.81
+    SHOW_S = 12
+    RED = SERIES[7]
+    fig, axes = plt.subplots(2, 4, figsize=(19, 7.8), sharex=True, sharey="row",
+                             gridspec_kw=dict(height_ratios=[1.3, 1], hspace=0.12))
+    for j, (c, name) in enumerate(lifts):
+        b = man[(man.participant_id == pid) & (man.exercise_class == c) & (man.day_order > 1)] \
+            .sort_values(["day_order", "session_order", "set_order_in_session"]).iloc[0]  # a test-day set
+        s = sig[b.segment_id][: int(SHOW_S * C.FS)] / 9.81
         t = np.arange(len(s)) / C.FS
+        ax = axes[0, j]
         for k, (col, nm) in enumerate(zip(SERIES[:3], "xyz")):
-            ax.plot(t, s[:, k], color=col, lw=2.0, label=f"{nm}-axis")
-        ax.set_title(name, loc="left", fontsize=16, color=INK)
-        ax.set_xlabel("Seconds")
-        ax.set_xticks([0, 2, 4, 6, 8])
-    axes[0].set_ylabel("Wrist acceleration (g)")
-    h, l = axes[0].get_legend_handles_labels()
-    top = header(fig, "What the watch sees",
-                 "One athlete (chosen at random), first 8 s of one set of each lift. The two presses look alike, and are the most confused.")
+            ax.plot(t, s[:, k], color=col, lw=1.8, label=f"{nm}-axis")
+        wm = segw == b.segment_id
+        P = predict(model, mu, sd, X[wm])
+        call = vote_bouts(P, meta[wm]).pred.iloc[0]
+        ok = call == c
+        verdict = "set called correctly" if ok else f"set called: {pretty(C.CLASS_NAMES[call])}"
+        ax.set_title(f"{name}: {verdict}", loc="left", fontsize=15, color=INK if ok else RED)
+        # bottom: probability of the correct lift per window, plotted at the window's end time
+        w = meta[wm].assign(p_true=P[:, c], call=P.argmax(1), end=lambda d: d.t0_s + C.WINDOW_S)
+        w = w[w.end <= SHOW_S]
+        ax2 = axes[1, j]
+        ax2.plot(w.end, w.p_true, color=BLUE, lw=2.5, marker="o", ms=7, mec=SURFACE, mew=1.5)
+        bad = w[w.call != c]
+        ax2.plot(bad.end, bad.p_true, "o", color=RED, ms=9, mec=SURFACE, mew=1.5, zorder=4)
+        last = None
+        for row in bad.itertuples():
+            lab = pretty(C.CLASS_NAMES[row.call])
+            if lab != last:  # label only when the wrong call changes
+                ax2.annotate(lab, (row.end, row.p_true), xytext=(0, -16), textcoords="offset points", ha="center",
+                             fontsize=10, color=RED)
+                last = lab
+        ax2.set_ylim(-0.12, 1.05)
+        ax2.axhline(0.5, color=MUTED, lw=1, ls=(0, (4, 3)))
+        ax2.set_xlabel("Seconds into the set")
+        ax2.set_xticks([0, 2, 4, 6, 8, 10, 12])
+    axes[0, 0].set_ylabel("Wrist acceleration (g)")
+    axes[1, 0].set_ylabel("Tracker's confidence\nin the right lift")
+    h, l = axes[0, 0].get_legend_handles_labels()
+    top = header(fig, "What the watch sees, and what the tracker says",
+                 "A never-recorded athlete (chosen at random); tracker = CNN trained on 8 other athletes × 1 set. "
+                 "Red = wrong call (label shows what it said).")
     fig.legend(h, l, loc="upper right", ncol=3, frameon=False, bbox_to_anchor=(0.99, 0.99))
-    fig.tight_layout(rect=(0, 0, 1, top))
+    fig.subplots_adjust(top=top - 0.05, bottom=0.09, left=0.06, right=0.99, wspace=0.06)
     save(fig, "fig7_what_the_watch_sees")
-    return pid
+    return pid, r
 
 
 # ---------------------------------------------------------------------------------------------------- fig 8
