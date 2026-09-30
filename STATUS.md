@@ -15,13 +15,32 @@
 **To do, in order**
 1. Commit the current work (ask the user first).
 2. ~~**06b** label-free calibration~~ **done**, see results below. Commit `b3ae7a4` holds steps 05-06; 06b outputs, `src/variants.py`, `steps/07_sensor_ablation.py` and a `src/features.py` change (1-channel support; 4-channel output unchanged, tests pass) are uncommitted.
-3. **07** (script written, not yet run; it asserts that "full" reproduces step 04) "What does the sensor use?", RF at N = 8, 17: (a) gravity/posture-only vs motion-only signals, (b) magnitude-only (orientation-free). Does the recorded-vs-new gap shrink with magnitude only?
+3. ~~**07**~~ **done**, see results below. "What does the sensor use?", RF at N = 8, 17: (a) gravity/posture-only vs motion-only signals, (b) magnitude-only (orientation-free). Does the recorded-vs-new gap shrink with magnitude only?
 4. **08** edge panel: parameter count and size (RF vs CNN vs LSTM), 8-bit quantization accuracy drop on the same test athletes, operations per window, CPU latency per window (proxy; no real device), cost of AdaBN calibration.
 5. Evaluation step: formal paired tests (CNN vs RF vs LSTM; recorded vs new; k1 vs k2), moving the exploratory script into `steps/`.
 6. Figures: three panels (RF | CNN | LSTM), macro-F1 vs athletes recorded, 4 lines (k × recorded/new), CIs.
 7. Optional battery ideas not yet run: (#1) record only the confused lifts (bench, military, push press) and score on all 15; (#3) within-family transfer, analysis only, from the existing random-pair results.
 8. Poster ideas: data expressed as coach time (minutes of recording), worst-case athlete distribution, a "why" panel for press confusion (wrist angle vs gravity), per-exercise recall vs N, QR code to an interactive calculator (last).
 9. Abstract: draft in `drafts/abstract_draft.md`. **Late-breaking deadline Oct 9, 2026, 6 pm PST** (general and expanded deadlines have passed). Use the new 2026 SWACSM template. Email Dr. Amorim to confirm that a secondary analysis of public data qualifies as late-breaking.
+
+## Step 07 results: what does the sensor use? (done 2026-09-29; RF, k=2, 30 repeats, 1.4 min)
+The "full" condition reproduces step 04 (1,110/1,110 rows, max diff 1e-16), and a rerun of repeat 0 reproduces exactly. Tables: `outputs/tables/07_rf_{athletes,summary}.csv`, `07_rf_bouts.csv.gz`. Paired tests: exploratory script (to be formalized in the evaluation step).
+
+| N | Signal | New athletes F1 | Recorded F1 | Recorded − new gap (95% CI) | Press recall, new athletes |
+|---|---|---|---|---|---|
+| 8 | full | 0.81 | 0.94 | 0.13 (0.09-0.17) | 0.66 |
+| 8 | posture (gravity, 0.3 Hz low-pass) | 0.72 | 0.85 | 0.13 (0.11-0.16) | 0.61 |
+| 8 | motion (gravity removed) | 0.69 | 0.91 | 0.21 (0.17-0.26) | 0.51 |
+| 8 | magnitude only | 0.50 | 0.71 | 0.21 (0.17-0.26) | 0.34 |
+| 17 | full | 0.86 | 0.94 | 0.09 (0.06-0.12) | 0.69 |
+| 17 | posture | 0.78 | 0.86 | 0.08 (0.06-0.09) | 0.70 |
+| 17 | motion | 0.77 | 0.91 | 0.14 (0.11-0.19) | 0.58 |
+| 17 | magnitude only | 0.56 | 0.70 | 0.15 (0.11-0.19) | 0.36 |
+
+- **Posture and motion are complementary.** Each alone loses 0.07-0.12 for new athletes, and they are statistically indistinguishable from each other (p = 0.4 and 0.8).
+- **The "personal" part lives in the movement dynamics.** The recorded-vs-new gap is significantly larger with motion only than with posture only (+0.08 at N=8, +0.07 at N=17; p ≤ 0.0003). With posture only it equals the full-signal gap (p = 0.5). Interpretation: how each exercise *orients the wrist* is shared across people, while *how someone moves through it* is individual. That is why recording an athlete helps, and why it helps exercise by exercise (consistent with the null battery result).
+- **The hypothesis that the gap is about how the watch is worn is NOT supported.** Removing orientation (magnitude only) makes recognition far worse (−0.30) and *widens* the gap (+0.06 to +0.08, p ≤ 0.001). Orientation is the part that generalizes.
+- ⚠️ **Revise the planned press "why" panel.** For new athletes at N=17, posture-only press recall (0.70) equals the full signal (0.69), and motion-only is worse (0.58). The presses are separated mostly by *posture*, so "they look the same to the wrist because the forearm is vertical" is too simple. The presses remain the hardest classes in every variant. Look at wrist orientation per press (e.g., watch-face direction) before claiming a mechanism.
 
 ## Step 06b results: label-free calibration (done 2026-09-29, 30 repeats, reproducible)
 The new athlete wears the watch for their first day with **no labels**. CNN: 2.6 min; LSTM: 10 min. The "none" condition reproduces step 05 exactly. Tables: `outputs/tables/06b_{cnn,lstm}_{athletes,summary}.csv`.
@@ -34,6 +53,7 @@ CNN, new athletes, macro-F1 (gain vs none, 95% CI over 23 athletes):
 | 8 | 0.829 | 0.855 (**+0.027**, 0.018-0.036) | 0.854 (+0.025) | 0.839 (+0.010, ns) | 0.861 (+0.032) |
 | 17 | 0.895 | 0.907 (**+0.012**, 0.002-0.024) | 0.908 (+0.013, ns) | 0.895 (0.000) | 0.916 (+0.021) |
 
+- **Paired tests (AdaBN vs none, Wilcoxon, n = 23):** N=2 p = 5e-7, 22/23 athletes improved (worst −0.006); N=8 p = 6e-5, 18/23 improved; **N=17 p = 0.07, 15/23 improved: treat as inconclusive**, even though the bootstrap CI (0.002-0.024) just excludes 0. Accuracy gain +3.4 / +2.1 / +1.2 points ≈ 0.5 / 0.3 / 0.2 extra correct sets per 15-set session. Statistically clear at small N, practically modest; the value is that it costs nothing.
 - **AdaBN helps, and helps most when few athletes are recorded.** With no labels and no retraining, it closes ~15-25% of the recorded-vs-new gap. At N=2 it is worth about one extra recorded teammate (N=2+AdaBN 0.65 vs N=4 0.73 for the CNN); at N=8 it lands between the N=8 and N=12 scores.
 - Rescaling inputs with the athlete's own statistics adds nothing on top of AdaBN. For the **LSTM** (no BatchNorm; input scaling only) it slightly **hurts** (−0.017 at N=8, −0.021 at N=17). So the gain comes from recalibrating the network's internal statistics, not from simple rescaling.
 - Adapting on the unlabeled test days themselves is slightly better (+0.02-0.05) and is realistic for an on-device tracker, but it is reported as secondary.
