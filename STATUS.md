@@ -35,11 +35,31 @@
 4. **Late-breaking deadline Oct 9, 2026, 6 pm PST.** Use the new 2026 SWACSM template. Email Dr. Amorim (amorim@unm.edu) to confirm that a secondary analysis of public data qualifies.
 5. Optional: "record only the confused lifts" battery; the coach-time framing (minutes of recording per budget).
 
+## Step 16 results: simpler models + level of detail (done 2026-09-29; 0.3 min on 24 cores; repeat 0 reproduces)
+Model ladder: chance (1/15 = 0.067) → **coach's rules** (`src/coachrules.py`: per-exercise typical profile on 4 plain measures, set level, no ML) → **logistic regression** (59 window features, standardized, balanced, C = 1, single-threaded for reproducibility) → RF → CNN. The LSTM is dropped from the poster. Tables: `outputs/tables/16_*`.
+- Fix during the run: logistic regression was not reproducible across thread counts (BLAS rounding), so the verify step failed. It is now pinned to one thread (`threadpool_limits(1)`) and reproduces exactly.
+
+Macro-F1, new athletes, 1 set per exercise (paired by athlete, n = 23):
+
+| N | Rules | LogReg | RF | CNN | LogReg − RF | LogReg − CNN |
+|---|---|---|---|---|---|---|
+| 2 | 0.42 | **0.68** | 0.64 | 0.57 | +0.04 (p = 0.001) | +0.11 (p = 2e-7) |
+| 4 | 0.45 | **0.75** | 0.72 | 0.68 | +0.03 (p = 0.006) | +0.07 (p = 2e-5) |
+| 8 | 0.47 | **0.81** | 0.78 | 0.79 | +0.03 (p = 0.03) | +0.02 (ns) |
+| 17 | 0.49 | 0.85 | 0.84 | **0.88** | +0.01 (ns) | −0.03 (p = 0.04) |
+
+- **The simplest ML model wins with realistic data.** Logistic regression is best or tied-best up to 8 athletes; the CNN only pulls ahead at 17.
+- **Coach's rules** are 6-7× chance but far below every ML model (RF − rules = +0.22 to +0.35, p < 1e-6), and barely improve with more athletes (0.42 → 0.49). Four plain measures can't separate 15 lifts.
+- **The budget result holds for the simplest model too:** logistic regression 4 athletes × 1 set vs 1 × 4 = +0.14 (23/23 athletes better); 8×1 vs 2×4 = +0.09 (23/23); 16×1 vs 4×4 = +0.06 (22/23). It is weaker but still positive for the rules (+0.02 to +0.05).
+- **Level of detail** (accuracy, new athletes, 8 recorded; mapping fixed in advance): exact lift 0.81-0.83 (ML) · movement pattern 0.90-0.93 · body region 0.92-0.94 · push vs pull 0.92-0.95. Rules: 0.53 / 0.59 / 0.66 / 0.64. With 2 athletes recorded, logistic regression is already at 0.87 for body region and 0.84 for movement pattern.
+
 ## Step 15 results: poster extras (done 2026-09-29; `python steps/15_poster_extras.py`, no training)
 - **fig7_what_the_watch_sees:** raw 3-axis wrist signal for one randomly chosen athlete (seed 7), first 8 s of deadlift, arm curl, bench press and military press. An illustration only; the presses look alike, consistent with the confusion matrix.
 - **fig8_individual_athletes:** every never-recorded athlete's curve plus the mean. With 8 athletes recorded, 12/23 (RF) and 15/23 (CNN) new athletes are still below 0.80; the lowest athlete stays far below the rest.
 - **fig9_confusion:** CNN, 8 athletes × 1 set, new athletes. The worst class is the military press: 41% correct, 34% called bench press, 20% push press. Bench press 63%, push press 81%. Squat ↔ back squat and row → deadlift are the other main confusions.
 - **Regression** (`outputs/tables/15_regression.csv`): new-athlete macro-F1 ~ athlete intercepts + log2(athletes recorded) + log2(sets per athlete), using steps 04/05 (1-2 sets) and 12 (4 sets), with a cluster bootstrap over athletes. **Doubling athletes: RF +0.068 (0.060-0.075), CNN +0.098 (0.092-0.105). Doubling sets per athlete: RF +0.016 (0.012-0.020), CNN +0.039 (0.034-0.044). Ratio: RF 4.2× (3.3-5.5), CNN 2.5× (2.3-2.9).** Within-athlete R² 0.85 / 0.92. Poster sentence: "Doubling the athletes recorded buys 2.5-4× as much accuracy as doubling each athlete's sets."
+- **fig7 now shows the tracker's calls** (CNN, repeat 0, 8 other athletes × 1 set; the athlete is never recorded; test-day sets). All four sets are called correctly; the military press is called bench press for its first windows, then corrects.
+- **Confidence check (scratch script, same model, all 6 new athletes, 5,056 windows): not overfitting, but mildly overconfident in the middle.** When ≥99% sure it is right 99.4% of the time (35% of windows); at 50-70% stated confidence it is right only 45%; expected calibration error 0.06; wrong-but-≥95%-sure = 0.8% of windows. Arm curl is 100% accurate at 100% confidence (earned). Deadlift is overconfident across new athletes (84% confidence vs 69% accuracy in this repeat), as are the military press (67% vs 44%), squat and push press. So fig7's near-certain deadlift is true for this athlete but not typical. Do not present the confidence line as accuracy.
 - ⚠️ **Posture claim walked back (user, 2026-09-29).** A variance decomposition of set-level features (`outputs/tables/15_variance_decomposition.csv`; 1,861 sets, 23 athletes) shows the "posture shared, movement personal" line is too simple. Between-exercise share of variance: orientation x-axis 92%, z 72%, y 52%, orientation change within a set 44%, movement intensity 91%, tempo 36%. Between-athlete (same exercise) share: y-axis orientation 37% and tempo 38% are the personal parts. Bench and military press overlap in average wrist orientation. Step 07's aggregate result (motion-only has a larger recorded-new gap; orientation-free fails) still stands, but its one-line interpretation should not be claimed. **Decision: the posture finding is removed** from the abstract, findings and poster (fig4 not used).
 
 ## Step 13 results: real-time recognition (done 2026-09-29; RF 0.3 min, CNN 2.0 min on 24 cores)
