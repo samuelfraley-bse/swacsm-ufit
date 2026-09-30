@@ -115,7 +115,7 @@ def fig1_hero(model="logreg"):
             gd = g[g.depth == depth]
             n = int(gd.n_team.iloc[0])
             mm, lo, hi = bootstrap_ci(gd.groupby("athlete").macro_f1.mean().to_numpy())
-            x = budget - {1: 0.0, 2: 0.5, 4: 1.0}[depth]  # x2 / x4 placed to the left, below the curve
+            x = budget  # same total sets -> same x
             pts.append((x, mm))
             col = split_style[depth][0]
             ax.errorbar(x, mm, yerr=[[mm - lo], [hi - mm]], color=col, lw=1.4, capsize=3, zorder=4)
@@ -125,8 +125,8 @@ def fig1_hero(model="logreg"):
                 ax.annotate(f"{n}×1", (x, mm), xytext=(0, 16), textcoords="offset points", fontsize=12, color=INK,
                             ha="center", fontweight="bold", bbox=box, zorder=7)
             else:
-                ax.annotate(f"{n}×{depth}", (x, mm), xytext=(-10, 0), textcoords="offset points", fontsize=12,
-                            color=INK2, ha="right", va="center", bbox=box, zorder=7)
+                ax.annotate(f"{n}×{depth}", (x, mm), xytext=(12, 0), textcoords="offset points", fontsize=12,
+                            color=INK2, ha="left", va="center", bbox=box, zorder=7)
         ax.plot([p[0] for p in pts], [p[1] for p in pts], color=INK2, lw=1, zorder=3)
     # gap labels at both ends (left of the first point, right of the last)
     for x, side in ((new.n_team.iloc[0], -1), (new.n_team.iloc[-1], 1)):
@@ -146,8 +146,8 @@ def fig1_hero(model="logreg"):
     h, l = ax.get_legend_handles_labels()
     order = [2, 1, 0, 3, 4, 5]
     top = header(fig, "Same total sets: spread them across more athletes",
-                 f"{MODEL_NAME[model]}; labels = athletes × sets per exercise (all 15 exercises); ×2 / ×4 points are drawn "
-                 "just left of their budget; 4-set athletes are recorded on two days. 95% CI over 23 athletes.",
+                 f"{MODEL_NAME[model]}; labels = athletes × sets per exercise (all 15 exercises); "
+                 "points stacked at the same x use the same total sets. 4-set athletes are recorded on two days. 95% CI.",
                  [h[i] for i in order], [l[i] for i in order], ncol=3)
     fig.tight_layout(rect=(0, 0, 1, top))
     save(fig, f"fig1_hero_{model}")
