@@ -97,34 +97,43 @@ def fig1_hero(model="logreg"):
     deep_file = {"logreg": "16_deep_broad_baselines_athletes.csv", "rf": "12_deep_broad_rf_athletes.csv",
                  "cnn": "12_deep_broad_cnn_athletes.csv"}[model]
     d = pd.read_csv(T / deep_file)
-    d = d[(d.model == model) & (d.depth == 4)] if "model" in d.columns else d[d.depth == 4]
+    d = d[d.model == model] if "model" in d.columns else d
 
-    fig, ax = plt.subplots(figsize=(13, 8))
+    fig, ax = plt.subplots(figsize=(13.5, 8))
     ax.plot(rules.n_team, rules["mean"], color=MUTED, lw=2.2, ls=(0, (5, 3)), label="Coach's rules (new athletes)")
     for grp, col, lab in ((rec, ORANGE, "Recorded athletes"), (new, BLUE, "New (never-recorded) athletes")):
         ax.fill_between(grp.n_team, grp.ci_lo, grp.ci_hi, color=col, alpha=0.18, lw=0)
         ax.plot(grp.n_team, grp["mean"], color=col, lw=3, marker="o", ms=9, mec=SURFACE, mew=2, label=lab)
-    # same recording effort spent on fewer athletes x 4 sets (hollow points)
-    for n, g in d.groupby("n_team"):
-        mm, lo, hi = bootstrap_ci(g.groupby("athlete").macro_f1.mean().to_numpy())
-        x = n * 4
-        ax.errorbar(x, mm, yerr=[[mm - lo], [hi - mm]], color=BLUE, lw=1.5, capsize=4)
-        ax.plot(x, mm, "o", ms=12, mfc=SURFACE, mec=BLUE, mew=2.5, zorder=5,
-                label="Same effort: fewer athletes × 4 sets" if n == 1 else None)
-        base = new.set_index("n_team")["mean"].get(x)
-        ax.annotate(f"{n} athlete{'s' if n > 1 else ''} × 4 sets", (x, mm), xytext=(10, -4), textcoords="offset points",
-                    fontsize=12, color=INK2, va="top")
-        if base is not None:
-            ax.annotate("", xy=(x, mm + 0.008), xytext=(x, base - 0.012),
-                        arrowprops=dict(arrowstyle="->", color=INK2, lw=1.2))
+    # same total sets, split three ways: many athletes x 1 set (on the curve) -> x 2 -> few athletes x 4 sets
+    split_style = {1: (RAMP3[2], "all athletes, 1 set each (on the curve)"),
+                   2: (RAMP3[1], "half the athletes, 2 sets each"),
+                   4: (RAMP3[0], "a quarter of the athletes, 4 sets each")}
+    box = dict(boxstyle="round,pad=0.15", fc=SURFACE, ec="none", alpha=0.85)
+    for budget, g in d.groupby("budget"):
+        pts = []
+        for depth in (1, 2, 4):
+            gd = g[g.depth == depth]
+            n = int(gd.n_team.iloc[0])
+            mm, lo, hi = bootstrap_ci(gd.groupby("athlete").macro_f1.mean().to_numpy())
+            x = budget - {1: 0.0, 2: 0.5, 4: 1.0}[depth]  # x2 / x4 placed to the left, below the curve
+            pts.append((x, mm))
+            col = split_style[depth][0]
+            ax.errorbar(x, mm, yerr=[[mm - lo], [hi - mm]], color=col, lw=1.4, capsize=3, zorder=4)
+            ax.plot(x, mm, "o", ms=12, mfc=col, mec=SURFACE if depth == 1 else col, mew=2, zorder=6,
+                    label=f"Same total sets: {split_style[depth][1]}" if budget == 4 else None)
+            if depth == 1:
+                ax.annotate(f"{n}×1", (x, mm), xytext=(0, 16), textcoords="offset points", fontsize=12, color=INK,
+                            ha="center", fontweight="bold", bbox=box, zorder=7)
+            else:
+                ax.annotate(f"{n}×{depth}", (x, mm), xytext=(-10, 0), textcoords="offset points", fontsize=12,
+                            color=INK2, ha="right", va="center", bbox=box, zorder=7)
+        ax.plot([p[0] for p in pts], [p[1] for p in pts], color=INK2, lw=1, zorder=3)
     # gap labels at both ends (left of the first point, right of the last)
     for x, side in ((new.n_team.iloc[0], -1), (new.n_team.iloc[-1], 1)):
         a, b = rec.set_index("n_team")["mean"][x], new.set_index("n_team")["mean"][x]
         ax.annotate("", xy=(x + side * 0.35, a), xytext=(x + side * 0.35, b), arrowprops=dict(arrowstyle="<->", color=INK, lw=1.3))
         ax.text(x + side * 0.55, (a + b) / 2, f"gap\n{a - b:.2f}", ha="left" if side > 0 else "right", va="center",
                 fontsize=12, color=INK)
-    ax.annotate("17 athletes", (new.n_team.iloc[-1], new["mean"].iloc[-1]), xytext=(0, -22), textcoords="offset points",
-                ha="center", fontsize=11, color=INK2)
     # 90% of the gain
     n90 = _n_threshold(new.n_team.to_numpy(), new["mean"].to_numpy(), 0.9)
     ax.axvline(n90, color=MUTED, lw=1.2, ls=(0, (2, 3)))
@@ -135,10 +144,11 @@ def fig1_hero(model="logreg"):
     ax.set_xlabel("Recording effort: sets per exercise, all athletes combined\n(on the curves, each athlete records 1 set)")
     ax.set_ylabel("Macro-F1, whole sets")
     h, l = ax.get_legend_handles_labels()
-    order = [2, 1, 3, 0]
-    top = header(fig, "How much should a program record? More athletes, one set each",
-                 f"{MODEL_NAME[model]}; mean over 23 athletes, 95% CI; chance = 0.07.", [h[i] for i in order],
-                 [l[i] for i in order], ncol=2)
+    order = [2, 1, 0, 3, 4, 5]
+    top = header(fig, "Same total sets: spread them across more athletes",
+                 f"{MODEL_NAME[model]}; labels = athletes × sets per exercise (all 15 exercises); ×2 / ×4 points are drawn "
+                 "just left of their budget; 4-set athletes are recorded on two days. 95% CI over 23 athletes.",
+                 [h[i] for i in order], [l[i] for i in order], ncol=3)
     fig.tight_layout(rect=(0, 0, 1, top))
     save(fig, f"fig1_hero_{model}")
 
