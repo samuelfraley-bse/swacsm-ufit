@@ -29,7 +29,7 @@ from src.plots import AXIS, INK, INK2, MUTED, SERIES, SURFACE, save  # noqa: E40
 T = ROOT / "outputs" / "tables"
 BLUE, ORANGE = SERIES[0], SERIES[1]
 RAMP3 = ["#86b6ef", "#2a78d6", "#104281"]  # ordinal steps 250 / 450 / 650 (lightest clears 2:1 on light)
-MODEL_NAME = {"rf": "Random forest", "cnn": "CNN", "lstm": "LSTM"}
+MODEL_NAME = {"rf": "Random forest", "cnn": "CNN", "lstm": "LSTM", "logreg": "Logistic regression", "rules": "Coach's rules"}
 N_GRID = [2, 4, 6, 8, 12, 16, 17]
 
 
@@ -49,11 +49,13 @@ def header(fig, text, sub, handles=None, labels=None, ncol=3):
 
 
 def fig1():
-    s = pd.concat([pd.read_csv(T / "04_rf_summary.csv"), pd.read_csv(T / "05_cnn_summary.csv"),
-                   pd.read_csv(T / "05_lstm_summary.csv")])
+    s = pd.concat([pd.read_csv(T / "16_baselines_summary.csv"), pd.read_csv(T / "04_rf_summary.csv"),
+                   pd.read_csv(T / "05_cnn_summary.csv")])
     s = s[s.k == 1]
+    rules = s[(s.model == "rules") & (s.group == "new")].sort_values("n_team")
     fig, axes = plt.subplots(1, 3, figsize=(16, 5.6), sharey=True)
-    for ax, m in zip(axes, ["rf", "cnn", "lstm"]):
+    for ax, m in zip(axes, ["logreg", "rf", "cnn"]):
+        ax.plot(rules.n_team, rules["mean"], color=MUTED, lw=2, ls=(0, (5, 3)), label="Coach's rules (new athletes)")
         for grp, col, lab in (("recorded", ORANGE, "Recorded athletes"), ("new", BLUE, "New (never-recorded) athletes")):
             d = s[(s.model == m) & (s.group == grp)].sort_values("n_team")
             ax.fill_between(d.n_team, d.ci_lo, d.ci_hi, color=col, alpha=0.18, lw=0)
@@ -65,13 +67,80 @@ def fig1():
         ax.set_xlim(1, 19.5)
         ax.set_xlabel("Athletes recorded (1 set per exercise)")
     axes[0].set_ylabel("Macro-F1 (whole sets)")
-    axes[0].set_ylim(0.4, 1.0)
+    axes[0].set_ylim(0.35, 1.0)
     h, l = axes[0].get_legend_handles_labels()
     top = header(fig, "Recording more athletes improves recognition of new athletes",
-                 "The gap to recorded athletes shrinks but never closes. Mean over 23 athletes, 95% CI.",
-                 h[::-1], l[::-1], ncol=2)
+                 "The gap to recorded athletes shrinks but never closes. Mean over 23 athletes, 95% CI. Chance = 0.07.",
+                 h[::-1], l[::-1], ncol=3)
     fig.tight_layout(rect=(0, 0, 1, top))
     save(fig, "fig1_learning_curves")
+
+
+def _n_threshold(curve_n, curve, frac):
+    """Athletes needed to reach `frac` of the gain from the first to the last point (linear interpolation)."""
+    y = np.asarray(curve, float)
+    f = (y - y[0]) / (y[-1] - y[0])
+    for i in range(1, len(y)):
+        if f[i] >= frac:
+            return curve_n[i - 1] + (frac - f[i - 1]) * (curve_n[i] - curve_n[i - 1]) / (f[i] - f[i - 1])
+    return np.nan
+
+
+def fig1_hero(model="logreg"):
+    """Single-panel poster centerpiece: learning curve + recorded gap + coach's rules + same-effort deep points."""
+    s = pd.concat([pd.read_csv(T / "16_baselines_summary.csv"), pd.read_csv(T / "04_rf_summary.csv"),
+                   pd.read_csv(T / "05_cnn_summary.csv")])
+    s = s[s.k == 1]
+    new = s[(s.model == model) & (s.group == "new")].sort_values("n_team")
+    rec = s[(s.model == model) & (s.group == "recorded")].sort_values("n_team")
+    rules = s[(s.model == "rules") & (s.group == "new")].sort_values("n_team")
+    deep_file = {"logreg": "16_deep_broad_baselines_athletes.csv", "rf": "12_deep_broad_rf_athletes.csv",
+                 "cnn": "12_deep_broad_cnn_athletes.csv"}[model]
+    d = pd.read_csv(T / deep_file)
+    d = d[(d.model == model) & (d.depth == 4)] if "model" in d.columns else d[d.depth == 4]
+
+    fig, ax = plt.subplots(figsize=(13, 8))
+    ax.plot(rules.n_team, rules["mean"], color=MUTED, lw=2.2, ls=(0, (5, 3)), label="Coach's rules (new athletes)")
+    for grp, col, lab in ((rec, ORANGE, "Recorded athletes"), (new, BLUE, "New (never-recorded) athletes")):
+        ax.fill_between(grp.n_team, grp.ci_lo, grp.ci_hi, color=col, alpha=0.18, lw=0)
+        ax.plot(grp.n_team, grp["mean"], color=col, lw=3, marker="o", ms=9, mec=SURFACE, mew=2, label=lab)
+    # same recording effort spent on fewer athletes x 4 sets (hollow points)
+    for n, g in d.groupby("n_team"):
+        mm, lo, hi = bootstrap_ci(g.groupby("athlete").macro_f1.mean().to_numpy())
+        x = n * 4
+        ax.errorbar(x, mm, yerr=[[mm - lo], [hi - mm]], color=BLUE, lw=1.5, capsize=4)
+        ax.plot(x, mm, "o", ms=12, mfc=SURFACE, mec=BLUE, mew=2.5, zorder=5,
+                label="Same effort: fewer athletes × 4 sets" if n == 1 else None)
+        base = new.set_index("n_team")["mean"].get(x)
+        ax.annotate(f"{n} athlete{'s' if n > 1 else ''} × 4 sets", (x, mm), xytext=(10, -4), textcoords="offset points",
+                    fontsize=12, color=INK2, va="top")
+        if base is not None:
+            ax.annotate("", xy=(x, mm + 0.008), xytext=(x, base - 0.012),
+                        arrowprops=dict(arrowstyle="->", color=INK2, lw=1.2))
+    # gap labels at both ends (left of the first point, right of the last)
+    for x, side in ((new.n_team.iloc[0], -1), (new.n_team.iloc[-1], 1)):
+        a, b = rec.set_index("n_team")["mean"][x], new.set_index("n_team")["mean"][x]
+        ax.annotate("", xy=(x + side * 0.35, a), xytext=(x + side * 0.35, b), arrowprops=dict(arrowstyle="<->", color=INK, lw=1.3))
+        ax.text(x + side * 0.55, (a + b) / 2, f"gap\n{a - b:.2f}", ha="left" if side > 0 else "right", va="center",
+                fontsize=12, color=INK)
+    ax.annotate("17 athletes", (new.n_team.iloc[-1], new["mean"].iloc[-1]), xytext=(0, -22), textcoords="offset points",
+                ha="center", fontsize=11, color=INK2)
+    # 90% of the gain
+    n90 = _n_threshold(new.n_team.to_numpy(), new["mean"].to_numpy(), 0.9)
+    ax.axvline(n90, color=MUTED, lw=1.2, ls=(0, (2, 3)))
+    ax.text(n90 + 0.2, 0.40, f"~{n90:.0f} athletes: 90% of the gain\nseen up to 17", fontsize=12, color=INK2, va="bottom")
+    ax.set_xticks([2, 4, 6, 8, 12, 16])
+    ax.set_xlim(0.3, 19.3)
+    ax.set_ylim(0.35, 1.0)
+    ax.set_xlabel("Recording effort: sets per exercise, all athletes combined\n(on the curves, each athlete records 1 set)")
+    ax.set_ylabel("Macro-F1, whole sets")
+    h, l = ax.get_legend_handles_labels()
+    order = [2, 1, 3, 0]
+    top = header(fig, "How much should a program record? More athletes, one set each",
+                 f"{MODEL_NAME[model]}; mean over 23 athletes, 95% CI; chance = 0.07.", [h[i] for i in order],
+                 [l[i] for i in order], ncol=2)
+    fig.tight_layout(rect=(0, 0, 1, top))
+    save(fig, f"fig1_hero_{model}")
 
 
 def fig2():
@@ -258,6 +327,6 @@ def fig6():
 
 
 if __name__ == "__main__":
-    for f in (fig1, fig2, fig3, fig4, fig5, fig6):
+    for f in (fig1, fig1_hero, fig2, fig3, fig4, fig5, fig6):
         f()
         print("saved", f.__name__)

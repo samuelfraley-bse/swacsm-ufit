@@ -28,6 +28,8 @@
 
 **Figures: done (2026-09-29), `python steps/14_figures.py` → `figs/fig1_learning_curves`, `fig2_budget`, `fig3_shortcuts`, `fig4_posture_motion`, `fig5_realtime` (PNG 300 dpi + PDF).** Reference palette (validated slots; the Node validator was not available to re-run). Bars start at 0. The posture-only gap is 0.07 (0.0747), corrected from 0.08 in STATUS and the abstract.
 
+**Poster centerpiece (2026-09-29): `figs/fig1_hero_logreg`** (built on fig1, which the user liked best). A single panel for logistic regression: new vs recorded learning curves with CIs, the recorded-new gap labeled at both ends (0.23 → 0.07), the coach's-rules floor (dashed), the same-effort "fewer athletes × 4 sets" points (step 16 deep grid) with arrows down from the curve, and a ~13-athlete 90%-of-gain marker (for logistic regression; ~12 for the RF). `fig1_learning_curves` now shows logistic regression | RF | CNN with the rules floor (LSTM dropped). `fig1_hero(model=...)` also works for "rf"/"cnn".
+
 **To do, in order** (item 1 superseded by the figures above)
 1. ~~**Figures**~~: (a) equal-budget comparison (headline); (b) learning curves, one panel per model, recorded vs new; (c) gap G(N); (d) onboarding: record all 15 vs battery vs label-free; (e) posture/motion panel; (f) per-exercise recall vs N; optionally the worst-case athlete distribution.
 2. **Revise the abstract** (`drafts/abstract_draft.md`) around the budget framing; see the notes at the top of that file.
