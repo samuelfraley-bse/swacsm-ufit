@@ -6,6 +6,8 @@ Each recorded training set gets N_COPIES simulated copies (src/augment.py). Arms
   none              real sets only (must reproduce step 04 RF / step 05 CNN, k=1)
   tempo_intensity   + simulated copies varying tempo and movement intensity
   plus_placement    + the same, plus a random strap rotation (up to 15 degrees)
+  um2017            (run with --arms um2017) Um et al. ICMI 2017 best recipe, Rot+Perm+TimeW on windows,
+                    ported from their official code with its default parameters (full random rotation)
 The CNN gets the same number of gradient steps in every arm (epochs scaled by 1/(1+N_COPIES)), so any gain
 comes from the simulated data, not from extra training. The RF keeps 300 trees.
 Scored on the new athletes' later days; also expressed as "worth X extra real athletes" by interpolating on
@@ -39,7 +41,7 @@ from src.utils import git_hash  # noqa: E402
 OUT = ROOT / "outputs" / "tables"
 TEAM_SIZES = (2, 4, 8, 17)
 N_COPIES = 4
-ARMS = {"none": None, "tempo_intensity": False, "plus_placement": True}  # value = rotate?
+ARMS = ["none", "tempo_intensity", "plus_placement", "um2017"]  # um2017: Um et al. Rot+Perm+TimeW (window level)
 CURVE_N = [2, 4, 6, 8, 12, 16, 17]
 
 
@@ -52,8 +54,8 @@ def low_priority():
             print("warning: could not lower process priority")
 
 
-def one(r, model):
-    from src.augment import simulated_windows
+def one(r, model, arms=ARMS[:3]):
+    from src.augment import simulated_windows, um_windows
     from src.features import extract
     from src.load import load_all
 
@@ -77,10 +79,13 @@ def one(r, model):
         te_rec = test_bouts(man, team)
         assert_no_leak(man, tr, te_rec + te_new, plan["new"])
         trm, tem = np.isin(seg, tr), np.isin(seg, te_rec + te_new)
-        for arm, rotate in ARMS.items():
-            if rotate is None:
+        for arm in arms:
+            if arm == "none":
                 Xa, ya = X[:0], y[:0]
+            elif arm == "um2017":
+                Xa, ya = um_windows(X[trm], N_COPIES, seed=[r, n, 2017]), np.repeat(y[trm], N_COPIES)
             else:
+                rotate = arm == "plus_placement"
                 Xa, ya = simulated_windows(segdf, sig_by_id, tr, N_COPIES, seed=[r, n, 1111, int(rotate)], rotate=rotate)
             if model == "rf":
                 from sklearn.ensemble import RandomForestClassifier
@@ -90,7 +95,7 @@ def one(r, model):
                 rf.fit(Ftr, np.concatenate([y[trm], ya]))
                 proba = rf.predict_proba(F[tem])
             else:
-                epochs = EPOCHS if rotate is None else max(1, round(EPOCHS / (1 + N_COPIES)))
+                epochs = EPOCHS if arm == "none" else max(1, round(EPOCHS / (1 + N_COPIES)))
                 proba = fit_predict("cnn", np.concatenate([X[trm], Xa]), np.concatenate([y[trm], ya]), X[tem], r, epochs=epochs)
             b = vote_bouts(proba, meta[tem])
             b["group"] = np.where(b.athlete.isin(plan["new"]), "new", "recorded")
@@ -114,12 +119,16 @@ def main():
     ap.add_argument("--repeats", type=int, default=30)
     ap.add_argument("--jobs", type=int, default=12)
     ap.add_argument("--verify", action="store_true")
+    ap.add_argument("--arms", nargs="+", default=ARMS[:3], choices=ARMS,
+                    help="'none' is always run (baseline check); outputs get a suffix if not the default arms")
     args = ap.parse_args()
+    arms = ["none"] + [a for a in args.arms if a != "none"]
+    tag = "" if arms == ARMS[:3] else "_" + "_".join(arms[1:])
     low_priority()
     get_windows()
 
     t0 = time.time()
-    out = Parallel(n_jobs=args.jobs, verbose=0)(delayed(one)(r, args.model) for r in range(args.repeats))
+    out = Parallel(n_jobs=args.jobs, verbose=0)(delayed(one)(r, args.model, arms) for r in range(args.repeats))
     print(f"{args.repeats} repeats in {(time.time() - t0) / 60:.1f} min on {args.jobs} workers")
     res = pd.concat(out, ignore_index=True).assign(git=git_hash())
 
@@ -133,13 +142,13 @@ def main():
     assert len(m) == len(a) and dmax < 1e-9
 
     if args.verify:
-        v = one(0, args.model)
+        v = one(0, args.model, arms)
         b = res[res.repeat == 0].drop(columns="git").reset_index(drop=True)
         pd.testing.assert_frame_equal(v.reset_index(drop=True)[b.columns], b)
         print("verify: repeat 0 reproduces exactly")
 
     OUT.mkdir(parents=True, exist_ok=True)
-    res.to_csv(OUT / f"11_sim_{args.model}_athletes.csv", index=False)
+    res.to_csv(OUT / f"11_sim_{args.model}{tag}_athletes.csv", index=False)
 
     curve = ref[ref.group == "new"].groupby(["n_team", "athlete"]).macro_f1.mean().groupby(level=0).mean()
     curve = curve.reindex(CURVE_N)
@@ -147,7 +156,7 @@ def main():
     rows = []
     for n in TEAM_SIZES:
         base = ath.loc[(n, "none")]
-        for arm in ("tempo_intensity", "plus_placement"):
+        for arm in arms[1:]:
             s = ath.loc[(n, arm)]
             d = (s - base).dropna()
             mm, lo, hi = bootstrap_ci(d.to_numpy())
@@ -156,7 +165,7 @@ def main():
                              ci_hi=hi, p=wilcoxon(d).pvalue if (d != 0).any() else 1.0, n_positive=int((d > 0).sum()),
                              n=len(d), equivalent_real_athletes=eq, extra_athletes_worth=eq - n if eq == eq else np.nan))
     s = pd.DataFrame(rows)
-    s.to_csv(OUT / f"11_sim_{args.model}_summary.csv", index=False)
+    s.to_csv(OUT / f"11_sim_{args.model}{tag}_summary.csv", index=False)
     print(s.round(4).to_string(index=False))
 
 

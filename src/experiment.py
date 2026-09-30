@@ -57,6 +57,26 @@ def train_ids_extra(plan, n_team, extra_classes, classes=range(15)):
     return team, ids
 
 
+def train_ids_depth(plan, man, n_team, depth, classes=range(15)):
+    """First n_team athletes x `depth` sets of every class, across days.
+
+    Sets 1-2 are the repeat's day-1 order (identical to train_ids k=1/k=2); sets 3+ are the athlete's later-day
+    sets in chronological order. Only valid when testing on athletes outside the team (their later days are used).
+    """
+    team = plan["order"][:n_team]
+    later = man[(man.day_order > 1) & man.participant_id.isin(team)].sort_values(
+        ["participant_id", "day_order", "session_order", "set_order_in_session"])
+    later_sets = {k: list(g.segment_id) for k, g in later.groupby(["participant_id", "exercise_class"])}
+    ids = []
+    for pid in team:
+        for c in classes:
+            s = plan["sets"][(pid, c)] + later_sets.get((pid, c), [])
+            if len(s) < depth:
+                raise ValueError(f"{pid} class {c}: only {len(s)} sets < depth {depth}")
+            ids += s[:depth]
+    return team, ids
+
+
 def run_repeat(r, fit_predict, X, F, meta, model_name, team_sizes=TEAM_SIZES, ks=KS):
     """fit_predict(train_mask, test_mask, seed) -> (n_test_windows, 15) probabilities.
 

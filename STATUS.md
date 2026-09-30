@@ -33,6 +33,19 @@
 4. **Late-breaking deadline Oct 9, 2026, 6 pm PST.** Use the new 2026 SWACSM template. Email Dr. Amorim (amorim@unm.edu) to confirm that a secondary analysis of public data qualifies.
 5. Optional: "record only the confused lifts" battery; the coach-time framing (minutes of recording per budget).
 
+## Step 12 results: few athletes recorded deeply vs many recorded once (done 2026-09-29; RF 0.9 min, CNN 4.5 min on 24 cores)
+Same budget split three ways; all 15 exercises in every condition; only the number of *different people* changes. Deep sets 3-4 come from the athlete's next recording day, so depth includes day-to-day variation. Tested on never-recorded athletes only. All depth ≤ 2 conditions reproduce steps 04/05 exactly (1,080 rows each); repeat 0 reproduces. Tables: `outputs/tables/12_deep_broad_{rf,cnn}_*`.
+
+| Budget (athlete-sets / exercise) | Deep | Middle | Broad | Broad − deep (RF) | Broad − deep (CNN) |
+|---|---|---|---|---|---|
+| 4 | 1×4: RF 0.57, CNN 0.52 | 2×2: 0.66, 0.61 | 4×1: 0.72, 0.68 | **+0.15**, 23/23 better | **+0.16**, 23/23 |
+| 8 | 2×4: 0.69, 0.66 | 4×2: 0.74, 0.73 | 8×1: 0.78, 0.79 | +0.10, 22/23 | +0.13, 23/23 |
+| 16 | 4×4: 0.76, 0.78 | 8×2: 0.81, 0.83 | 16×1: 0.83, 0.86 | +0.08, 23/23 | +0.08, 23/23 |
+
+- **At every budget and in both models: broad > middle > deep.** All pairwise p < 0.001, except broad vs middle at 16 (RF p = 0.004, CNN p = 0.0003).
+- **One athlete recorded four times is far worse than four athletes recorded once** (+0.15-0.16, every athlete better). Day-to-day variation within one person does not substitute for variation between people.
+- This is the strongest version of the headline, and it closes the "depth = same-day second set" limitation.
+
 ## Step 11 results: simulated athletes / augmentation (done 2026-09-29; RF 6.1 min on 12 cores, CNN 5.3 min on 24; both reproduce baselines exactly)
 Budget 1 set per exercise. 4 simulated copies per recorded set (`src/augment.py`). The CNN gets the same number of gradient steps in every arm. New athletes; paired by athlete (n = 23). "≈ athletes" = extra real athletes with the same score on the real learning curve (blank when outside the curve). Tables: `outputs/tables/11_sim_{rf,cnn}_*`.
 
@@ -46,7 +59,16 @@ Budget 1 set per exercise. 4 simulated copies per recorded set (`src/augment.py`
 - **Consistent across both models: simulated tempo and intensity changes slightly hurt; adding simulated strap rotation helps a little** (at best +0.03, about one extra athlete, for the CNN at 4 athletes).
 - **The useful simulated variation is how the watch sits on the wrist, not how fast or hard someone lifts.** This agrees with step 07 (orientation carries the shared signal) and with the literature: Um et al. (ICMI 2017; wrist accelerometer, Parkinson's, 25 patients, subject-held-out 5-fold CV) found rotation-based augmentation most useful (best: rotation + permutation + time-warp, 77.5% → 86.9% window accuracy).
 - Our gains are far smaller than Um et al.'s: less headroom (baseline 0.57-0.88 vs a struggling CNN on noisy labels), set-level voting already absorbs window errors, and our "tempo" is a global re-timing rather than their local time-warp.
-- Possible follow-up (not run): rotation-only arm and Um et al.'s exact recipe (rotation + permutation + time-warp) on the CNN, to isolate the active ingredient and apply a published recipe.
+- **Um et al.'s published recipe** (`--arms um2017`; Rot+Perm+TimeW on windows, ported from their official code with default parameters, i.e. *full* random rotation). CNN 4.1 min, RF 3.2 min; baselines reproduce; repeat 0 reproduces. Tables: `outputs/tables/11_sim_{cnn,rf}_um2017_*`.
+
+  | N | CNN | RF |
+  |---|---|---|
+  | 2 | +0.010 (ns) | **−0.095** (p < 1e-4) |
+  | 4 | +0.001 (ns) | −0.051 (p = 0.0004) |
+  | 8 | **−0.040** (p = 0.0006) | −0.021 (ns) |
+  | 17 | **−0.077** (p < 1e-4; 22/23 worse) | −0.016 (ns) |
+
+  **It hurts, and the reason fits the whole story.** Full random rotation erases wrist orientation, which step 07 showed is the *shared*, informative signal for exercise recognition. In Um et al.'s Parkinson's task, orientation was a nuisance; here it is the signal. Small rotations (±15°, simulating strap placement) help slightly; full rotations destroy posture information. **Take-away: augmentation must respect the physics that carries the label.** The rotation-only arm was not run (dropped by the user).
 
 ## Step 10 results: semi-supervised self-training (done 2026-09-29; RF, 30 repeats, 5.4 min on 12 cores, reproducible)
 Labeled: N athletes × 1 set. Unlabeled: day-1 wear of the other 17−N candidates (`ssl_team`), plus the 6 new athletes' own unlabeled day-1 wear (`ssl_team_new`, secondary). Pre-specified recipe: keep the most confident 50% then 80% of sets per predicted class, 2 rounds (`src/selftrain.py`). Both baselines reproduce step 04 exactly (960 and 690 rows). Tables: `outputs/tables/10_ssl_*`.
