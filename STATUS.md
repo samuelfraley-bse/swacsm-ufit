@@ -11,6 +11,7 @@
 | 3 | Record the target athlete? | Yes: recorded > new at every N; the gap shrinks (0.29 → 0.06, CNN) but never closes | 08-C |
 | 4 | Does a 2-exercise battery transfer? | No; if anything it slightly hurts similar lifts (RF p ≤ 0.001) | 06, 08-F |
 | 5 | Zero-cost label-free calibration? | Small, reliable gain at small N (CNN +0.04 at N=2, p = 5e-7); ns at N=17 | 06b |
+| 5b | Can unlabeled wear substitute for labeled athletes? | Only when labels are scarce: self-training +0.02-0.04 at N=2 (≈ one extra athlete); nothing at N=4-8 | 10 |
 | why | What does the sensor use? | Posture is shared across people, motion is personal; orientation-free signals fail | 07 |
 | models | Which model? | RF best with little data, CNN best at N=17 (+0.04, p = 0.001), LSTM worst | 05, 08-E |
 
@@ -31,6 +32,20 @@
 3. Verify the citations before using them: the uLift paper (reported 90.06% accuracy?); the large-scale HAR study on labeled subjects vs data per subject; the Prudholme & Lockie SWACSM abstract.
 4. **Late-breaking deadline Oct 9, 2026, 6 pm PST.** Use the new 2026 SWACSM template. Email Dr. Amorim (amorim@unm.edu) to confirm that a secondary analysis of public data qualifies.
 5. Optional: "record only the confused lifts" battery; the coach-time framing (minutes of recording per budget).
+
+## Step 10 results: semi-supervised self-training (done 2026-09-29; RF, 30 repeats, 5.4 min on 12 cores, reproducible)
+Labeled: N athletes × 1 set. Unlabeled: day-1 wear of the other 17−N candidates (`ssl_team`), plus the 6 new athletes' own unlabeled day-1 wear (`ssl_team_new`, secondary). Pre-specified recipe: keep the most confident 50% then 80% of sets per predicted class, 2 rounds (`src/selftrain.py`). Both baselines reproduce step 04 exactly (960 and 690 rows). Tables: `outputs/tables/10_ssl_*`.
+
+| Labeled N | Supervised | + unlabeled teammates | + teammates + new athletes' own wear | 17 labeled (ceiling) |
+|---|---|---|---|---|
+| 2 | 0.640 | 0.661 (**+0.022**, 0.006-0.037, p = 0.018) | 0.678 (**+0.038**, 0.026-0.050, p < 1e-4; 19% of gap to ceiling) | 0.839 |
+| 4 | 0.717 | 0.718 (+0.002, ns) | 0.727 (+0.010, ns) | |
+| 8 | 0.781 | 0.772 (−0.009, ns) | 0.790 (+0.009, ns) | |
+
+- **Same pattern as label-free calibration (06b): unlabeled wear helps only when labeled data are scarce.** At N=2 it is worth about one extra labeled athlete (0.68 vs 0.72 for 4 labeled); by N=4-8 it adds nothing.
+- Pseudo-labels on the kept sets are 78-93% correct (70-81% over all unlabeled sets); accuracy rises with N.
+- **The 1-repeat smoke test (6 athletes) pointed the other way (−0.02 to −0.06).** That was noise; do not rely on single repeats.
+- Not run (parked): the weighted-pseudo-label sensitivity variant.
 
 ## Step 09 results: targeted depth (done 2026-09-29; RF, 30 repeats, 1.5 min on 12 cores, reproducible)
 Equal budgets of 18 sets per athlete-equivalent: 2nd set of the 3 presses vs 2nd set of 3 random non-press exercises vs 20% more athletes (1 set each). New athletes; paired by athlete (n = 23). Tables: `outputs/tables/09_targeted_*`.
