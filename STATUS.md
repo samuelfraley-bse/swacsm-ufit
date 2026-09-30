@@ -37,6 +37,9 @@
 4. **Late-breaking deadline Oct 9, 2026, 6 pm PST.** Use the new 2026 SWACSM template. Email Dr. Amorim (amorim@unm.edu) to confirm that a secondary analysis of public data qualifies.
 5. Optional: "record only the confused lifts" battery; the coach-time framing (minutes of recording per budget).
 
+## Note: why the recorded-athlete line is flat (2026-09-30; from saved summaries)
+Recorded athletes, 1 set / 2 sets per exercise, 2 → 4 → 8 → 17 recorded: logistic regression 0.91 / 0.91 / 0.91 / 0.92 (k=1), 0.94 / 0.94 / 0.93 / 0.93 (k=2); RF 0.89 → 0.92 (k=1), 0.93 → 0.94 (k=2); CNN 0.84 → 0.93 (k=1), 0.90 → 0.96 (k=2). The model already has the recorded athlete's own sets, so their accuracy sits near a within-person ceiling; more teammates helps (general knowledge) and dilutes (own-data share), and for logistic regression these cancel. The gap closes because new athletes rise. **Poster line: sets help your current roster; athletes help next year's.** At N=2 the recorded group is 2 athletes per repeat (21 athletes, 60 athlete-repeats vs 510 at N=17), so it is noisier. Added to `drafts/findings.md` (RQ3).
+
 ## Step 17 results: which exercises need more athletes? (done 2026-09-29; saved predictions only)
 Per-exercise recall for new athletes, 1 set per exercise. Groups use thresholds chosen after seeing the logistic-regression numbers, then applied unchanged to RF and CNN: **easy** = ≥0.90 with 4 athletes; **stuck** = <0.80 even with 17; **needs more athletes** = the rest. Tables: `outputs/tables/17_*`; figures `fig10_exercise_groups` (one chart, thin line per exercise and bold group means) and `fig11_exercise_panels` (small multiples, all 3 models).
 
