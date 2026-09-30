@@ -33,6 +33,21 @@
 4. **Late-breaking deadline Oct 9, 2026, 6 pm PST.** Use the new 2026 SWACSM template. Email Dr. Amorim (amorim@unm.edu) to confirm that a secondary analysis of public data qualifies.
 5. Optional: "record only the confused lifts" battery; the coach-time framing (minutes of recording per budget).
 
+## Step 11 results: simulated athletes / augmentation (done 2026-09-29; RF 6.1 min on 12 cores, CNN 5.3 min on 24; both reproduce baselines exactly)
+Budget 1 set per exercise. 4 simulated copies per recorded set (`src/augment.py`). The CNN gets the same number of gradient steps in every arm. New athletes; paired by athlete (n = 23). "≈ athletes" = extra real athletes with the same score on the real learning curve (blank when outside the curve). Tables: `outputs/tables/11_sim_{rf,cnn}_*`.
+
+| N | RF tempo+intensity | RF + strap rotation | CNN tempo+intensity | CNN + strap rotation |
+|---|---|---|---|---|
+| 2 | −0.011 (p = 0.04) | +0.004 (ns) | −0.008 (ns) | +0.014 (p = 0.04) |
+| 4 | −0.013 (p = 0.02) | +0.009 (p = 0.03) | −0.009 (ns) | **+0.030 (0.019-0.042, p = 1e-4; 19/23; ≈ +1.1 athletes)** |
+| 8 | −0.008 (ns) | +0.010 (p = 0.05; ≈ +1 athlete) | −0.011 (p = 0.015) | +0.010 (p = 0.04; ≈ +0.8) |
+| 17 | 0.000 (ns) | +0.015 (p = 0.007) | −0.008 (ns) | −0.001 (ns) |
+
+- **Consistent across both models: simulated tempo and intensity changes slightly hurt; adding simulated strap rotation helps a little** (at best +0.03, about one extra athlete, for the CNN at 4 athletes).
+- **The useful simulated variation is how the watch sits on the wrist, not how fast or hard someone lifts.** This agrees with step 07 (orientation carries the shared signal) and with the literature: Um et al. (ICMI 2017; wrist accelerometer, Parkinson's, 25 patients, subject-held-out 5-fold CV) found rotation-based augmentation most useful (best: rotation + permutation + time-warp, 77.5% → 86.9% window accuracy).
+- Our gains are far smaller than Um et al.'s: less headroom (baseline 0.57-0.88 vs a struggling CNN on noisy labels), set-level voting already absorbs window errors, and our "tempo" is a global re-timing rather than their local time-warp.
+- Possible follow-up (not run): rotation-only arm and Um et al.'s exact recipe (rotation + permutation + time-warp) on the CNN, to isolate the active ingredient and apply a published recipe.
+
 ## Step 10 results: semi-supervised self-training (done 2026-09-29; RF, 30 repeats, 5.4 min on 12 cores, reproducible)
 Labeled: N athletes × 1 set. Unlabeled: day-1 wear of the other 17−N candidates (`ssl_team`), plus the 6 new athletes' own unlabeled day-1 wear (`ssl_team_new`, secondary). Pre-specified recipe: keep the most confident 50% then 80% of sets per predicted class, 2 rounds (`src/selftrain.py`). Both baselines reproduce step 04 exactly (960 and 690 rows). Tables: `outputs/tables/10_ssl_*`.
 
