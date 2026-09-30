@@ -37,6 +37,19 @@
 4. **Late-breaking deadline Oct 9, 2026, 6 pm PST.** Use the new 2026 SWACSM template. Email Dr. Amorim (amorim@unm.edu) to confirm that a secondary analysis of public data qualifies.
 5. Optional: "record only the confused lifts" battery; the coach-time framing (minutes of recording per budget).
 
+## Step 17 results: which exercises need more athletes? (done 2026-09-29; saved predictions only)
+Per-exercise recall for new athletes, 1 set per exercise. Groups use thresholds chosen after seeing the logistic-regression numbers, then applied unchanged to RF and CNN: **easy** = ≥0.90 with 4 athletes; **stuck** = <0.80 even with 17; **needs more athletes** = the rest. Tables: `outputs/tables/17_*`; figures `fig10_exercise_groups` (one chart, thin line per exercise and bold group means) and `fig11_exercise_panels` (small multiples, all 3 models).
+
+| Group (logistic regression) | Exercises | Group-mean recall, 2 → 17 athletes |
+|---|---|---|
+| Easy | arm curl, burpee, deadlift, good morning, jumping jack | 0.94 → 0.99 |
+| Needs more athletes | squat (0.45 → 0.81), bent-over row (0.61 → 0.94), leg-raise crunch, lunge, push-up, lateral raise | 0.66 → 0.90 |
+| Stuck | military press (0.38 → 0.53), bench press, push press, back squat | 0.57 → 0.69 |
+
+- **"How many athletes?" depends on the lift.** The average curve rises mainly because the middle group improves. The easy group is already at the ceiling, and the stuck group plateaus: for the presses, the limit is the wrist sensor, not the amount of data.
+- **Robustness: all 3 models agree on 9 of 15 exercises.** The extremes are robust (arm curl, burpee, good morning and jumping jack are easy in all; bench and military press are stuck in all). The middle is model-dependent: deadlift, push-up, squat, back squat, push press and row switch groups near the thresholds. State this on the poster.
+- Practical line: trust the tracker for distinctive lifts; record more athletes for squat and row patterns; log the presses manually, or track them as "upper-body push" (≥0.9 at the category level, step 16).
+
 ## Step 16 results: simpler models + level of detail (done 2026-09-29; 0.3 min on 24 cores; repeat 0 reproduces)
 Model ladder: chance (1/15 = 0.067) → **coach's rules** (`src/coachrules.py`: per-exercise typical profile on 4 plain measures, set level, no ML) → **logistic regression** (59 window features, standardized, balanced, C = 1, single-threaded for reproducibility) → RF → CNN. The LSTM is dropped from the poster. Tables: `outputs/tables/16_*`.
 - Fix during the run: logistic regression was not reproducible across thread counts (BLAS rounding), so the verify step failed. It is now pinned to one thread (`threadpool_limits(1)`) and reproduces exactly.
