@@ -204,7 +204,60 @@ def fig5():
     save(fig, "fig5_realtime")
 
 
+def _athlete_ci(df, value="macro_f1"):
+    """Mean and 95% CI over athletes (each athlete averaged over repeats first)."""
+    return bootstrap_ci(df.groupby("athlete")[value].mean().to_numpy())
+
+
+def fig6():
+    """Everything on one axis: new-athlete macro-F1 vs recording budget (sets per exercise across athletes)."""
+    AQUA = SERIES[2]
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6.4), sharey=True)
+    for ax, m in zip(axes, ["rf", "cnn"]):
+        summ = pd.read_csv(T / ("04_rf_summary.csv" if m == "rf" else "05_cnn_summary.csv"))
+        summ = summ[summ.group == "new"]
+        lines = {}
+        # 4 sets per athlete (step 12; sets 3-4 from a second day)
+        r12 = pd.read_csv(T / f"12_deep_broad_{m}_athletes.csv").query("depth == 4")
+        d4 = [(n * 4, *_athlete_ci(g)) for n, g in r12.groupby("n_team")]
+        lines["4 sets per athlete"] = (pd.DataFrame(d4, columns=["x", "mean", "lo", "hi"]), RAMP3[0])
+        d2 = summ[summ.k == 2].assign(x=lambda d: d.n_team * 2)
+        lines["2 sets per athlete"] = (d2.rename(columns={"ci_lo": "lo", "ci_hi": "hi"})[["x", "mean", "lo", "hi"]], RAMP3[1])
+        d1 = summ[summ.k == 1].assign(x=lambda d: d.n_team)
+        lines["More athletes, 1 set each"] = (d1.rename(columns={"ci_lo": "lo", "ci_hi": "hi"})[["x", "mean", "lo", "hi"]], RAMP3[2])
+        end_labels = {"4 sets per athlete": "4 sets each", "2 sets per athlete": "2 sets each",
+                      "More athletes, 1 set each": "1 set each"}
+        for lab, (d, c) in lines.items():
+            d = d.sort_values("x")
+            ax.fill_between(d.x, d.lo, d.hi, color=c, alpha=0.15, lw=0)
+            ax.plot(d.x, d["mean"], color=c, lw=2.5, marker="o", ms=7, mec=SURFACE, mew=2, label=lab)
+            ax.annotate(end_labels[lab], (d.x.iloc[-1], d["mean"].iloc[-1]), xytext=(8, 0), textcoords="offset points",
+                        va="center", fontsize=12, color=INK2)
+        if m == "rf":  # targeted depth (step 09): 1 set of everything + a 2nd set of the 3 presses = 18/15 sets per exercise
+            tg = pd.read_csv(T / "09_targeted_athletes.csv").query("group == 'new' and condition == 'press'")
+            for n, g in tg.groupby("n_team"):
+                mm, lo, hi = _athlete_ci(g)
+                x = n * 18 / 15
+                ax.errorbar(x, mm, yerr=[[mm - lo], [hi - mm]], color=AQUA, lw=1.5, capsize=3, zorder=5)
+                ax.plot(x, mm, "^", color=AQUA, ms=12, mec=SURFACE, mew=2, zorder=6,
+                        label="Extra sets of the 3 presses" if n == 5 else None)
+        ax.set_xscale("log", base=2)
+        ax.set_xticks([2, 4, 8, 16, 32], ["2", "4", "8", "16", "32"])
+        ax.set_xlim(1.7, 40)
+        ax.set_xlabel("Recording budget (sets per exercise, all athletes combined)")
+        ax.set_title(MODEL_NAME[m], loc="left", fontsize=17, color=INK)
+    axes[0].set_ylabel("Macro-F1, new athletes")
+    axes[0].set_ylim(0.4, 1.0)
+    h, l = axes[0].get_legend_handles_labels()
+    order = [2, 1, 0, 3]  # 1 set, 2 sets, 4 sets, presses
+    top = header(fig, "What a recording budget buys: spend it on more athletes",
+                 "New athletes. The 1-set line stops at 17 (no more athletes to record); the 4-set line uses two recording days. 95% CI.",
+                 [h[i] for i in order], [l[i] for i in order], ncol=4)
+    fig.tight_layout(rect=(0, 0, 1, top))
+    save(fig, "fig6_budget_curves")
+
+
 if __name__ == "__main__":
-    for f in (fig1, fig2, fig3, fig4, fig5):
+    for f in (fig1, fig2, fig3, fig4, fig5, fig6):
         f()
         print("saved", f.__name__)
